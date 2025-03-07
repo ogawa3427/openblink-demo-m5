@@ -10,6 +10,7 @@
 #include "../lib/crc/crc.h"
 #include "../main.h"
 #include "ble.h"
+#include "esp_system.h"
 #include "host/ble_hs.h"
 #include "host/ble_uuid.h"
 #include "services/gap/ble_svc_gap.h"
@@ -122,6 +123,7 @@ static int blink_write_program(uint16_t conn_handle, uint16_t attr_handle,
       break;
     case BLINK_CMD_RESET:
       printf("blink_program_command [Reset]\n");
+      esp_restart();
       break;
     case BLINK_CMD_RELOAD:
       printf("blink_program_command re[L]oad\n");
