@@ -53,3 +53,45 @@ Libraries
 │   └── M5GFX @ 0.2.5 (required: M5GFX @ >=0.2.4)
 └── mrubyc @ 0.0.0+20250216090831.sha.2cbbbf7 (required: git+https://github.com/mrubyc/mrubyc.git#2cbbbf757bbc9366fd319dd76753dc2c8b8386b9)
 ```
+
+## mruby/c LED Control API
+
+OpenBlink provides a simple API for controlling the onboard RGB LED through mruby/c.
+
+### Available Classes and Methods
+
+#### LED Class
+- `LED.set([r, g, b])` - Sets the RGB LED color. Each value should be between 0-255.
+
+#### Blink Class
+- `Blink.req_reload?` - Checks if a code reload is requested.
+
+### Example: LED Blinking Code
+
+Here's a simple example that makes the LED blink in different colors:
+
+```ruby
+# RGB LED Blinking Example
+while true do
+  # Red
+  LED.set([255, 0, 0])
+  sleep 1
+  
+  # Green
+  LED.set([0, 255, 0])
+  sleep 1
+  
+  # Blue
+  LED.set([0, 0, 255])
+  sleep 1
+  
+  # Check if reload is requested
+  break if Blink.req_reload?
+end
+```
+
+This example demonstrates:
+- Setting RGB LED colors using the `LED.set` method
+- Using arrays to specify RGB values
+- Implementing a clean exit when code reload is requested
+
