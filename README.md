@@ -17,6 +17,7 @@ To clone the repository and initialize the submodules, run the following command
 ```console
 $ git clone https://github.com/OpenBlink/openblink-demo-m5.git
 $ pio run
+$ pio run -t erase && pio run -t upload
 ```
 
 ## Verified Hardware
