@@ -105,6 +105,9 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg) {
         blehr_advertise();
       }
       conn_handle = event->link_estab.conn_handle;
+
+      /* Initiate MTU exchange after connection established */
+      ble_gattc_exchange_mtu(conn_handle, NULL, NULL);
       break;
 
     case BLE_GAP_EVENT_DISCONNECT:
@@ -136,8 +139,8 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg) {
       break;
 
     case BLE_GAP_EVENT_MTU:
-      //      MODLOG_DFLT(INFO, "mtu update event; conn_handle=%d mtu=%d\n",
-      //                  event->mtu.conn_handle, event->mtu.value);
+      printf("MTU update event; conn_handle=%d mtu=%d\n",
+             event->mtu.conn_handle, event->mtu.value);
       break;
   }
 
@@ -194,6 +197,9 @@ void ble_init(void) {
   /* Initialize the NimBLE host configuration */
   ble_hs_cfg.sync_cb = blehr_on_sync;
   ble_hs_cfg.reset_cb = blehr_on_reset;
+
+  /* Set preferred MTU size */
+  ble_att_set_preferred_mtu(512);
 
   rc = ble_blink_init();
   assert(rc == 0);
