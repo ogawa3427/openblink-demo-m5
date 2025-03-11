@@ -69,6 +69,7 @@ This example demonstrates:
 - Setting RGB LED colors using the `LED.set` method
 - Using arrays to specify RGB values
 - Implementing a clean exit when code reload is requested
+- The `break if Blink.req_reload?` statement is crucial in OpenBlink applications. It allows the program to gracefully exit the current execution loop when a code reload is requested through the Bluetooth interface. Without this check, the program would continue running and ignore reload requests, making development and debugging difficult. This mechanism is what enables the "Blink" feature - the ability to update code wirelessly in less than 0.1 seconds without restarting the microprocessor.
 
 # OpenBlink Demo M5 (中文)
 
@@ -139,6 +140,7 @@ end
 - 使用`LED.set`方法设置 RGB LED 颜色
 - 使用数组指定 RGB 值
 - 在请求代码重载时实现干净退出
+- `break if Blink.req_reload?` 语句在 OpenBlink 应用程序中至关重要。它允许程序在通过蓝牙接口请求代码重载时优雅地退出当前执行循环。如果没有这个检查，程序将继续运行并忽略重载请求，使开发和调试变得困难。这种机制正是实现"Blink"功能的关键 - 能够在不重启微处理器的情况下，以不到 0.1 秒的时间无线更新代码。
 
 # OpenBlink Demo M5 (日本語)
 
@@ -209,3 +211,4 @@ end
 - `LED.set`メソッドを使用した RGB LED 色の設定
 - RGB 値を指定するための配列の使用
 - コードリロードが要求された場合のクリーンな終了の実装
+- `break if Blink.req_reload?`文は OpenBlink アプリケーションにおいて非常に重要です。これにより、Bluetooth インターフェースを通じてコードのリロードが要求された際に、現在の実行ループを適切に終了させることができます。この確認がなければ、プログラムは実行を継続してリロード要求を無視するため、開発やデバッグが困難になります。このメカニズムが「Blink」機能を可能にしています - マイクロプロセッサを再起動せずに 0.1 秒未満でワイヤレスにコードを更新する能力です。
