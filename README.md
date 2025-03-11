@@ -26,6 +26,10 @@ The following hardware platforms have been tested with OpenBlink:
 
 - M5 StampS3 (Espressif ESP32-S3FN8)
 
+## Documentation
+
+For more detailed documentation, please check the [doc directory](./doc)
+
 ## mruby/c LED Control API
 
 OpenBlink provides a simple API for controlling the onboard RGB LED through mruby/c.
@@ -97,6 +101,10 @@ $ pio run -t erase && pio run -t upload
 
 - M5 StampS3 (Espressif ESP32-S3FN8)
 
+## 文档
+
+有关更详细的文档，请查看[文档目录](./doc)
+
 ## mruby/c LED 控制 API
 
 OpenBlink 提供了一个简单的 API，通过 mruby/c 控制板载 RGB LED。
@@ -167,6 +175,10 @@ $ pio run -t erase && pio run -t upload
 以下のハードウェアプラットフォームは OpenBlink でテスト済みです：
 
 - M5 StampS3 (Espressif ESP32-S3FN8)
+
+## ドキュメント
+
+より詳細なドキュメントについては、[doc ディレクトリ](./doc)をご確認ください。
 
 ## mruby/c LED 制御 API
 
