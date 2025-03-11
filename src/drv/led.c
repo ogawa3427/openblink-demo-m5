@@ -1,3 +1,10 @@
+/**
+ * @file led.c
+ * @brief LED driver implementation
+ *
+ * Implements functions for controlling WS2812 RGB LEDs using the ESP32 RMT
+ * peripheral. Based on Espressif's LED strip example.
+ */
 #include "led.h"
 
 #include "../lib/fn.h"
@@ -51,6 +58,20 @@ static const rmt_symbol_word_t ws2812_reset = {
     .duration1 = RMT_LED_STRIP_RESOLUTION_HZ / 1000000 * 50 / 2,
 };
 
+/**
+ * @brief RMT encoder callback for WS2812 LED protocol
+ *
+ * Encodes byte data into RMT symbols according to the WS2812 protocol.
+ *
+ * @param data Pointer to the data to encode
+ * @param data_size Size of the data in bytes
+ * @param symbols_written Number of symbols already written
+ * @param symbols_free Number of free symbols in the buffer
+ * @param symbols Pointer to the symbol buffer
+ * @param done Pointer to a flag indicating if encoding is complete
+ * @param arg User argument (unused)
+ * @return Number of symbols written
+ */
 static size_t encoder_callback(const void *data, size_t data_size,
                                size_t symbols_written, size_t symbols_free,
                                rmt_symbol_word_t *symbols, bool *done,
@@ -88,6 +109,13 @@ static size_t encoder_callback(const void *data, size_t data_size,
   }
 }
 
+/**
+ * @brief Initializes the LED driver
+ *
+ * Sets up the RMT peripheral for controlling WS2812 RGB LEDs.
+ *
+ * @return kSuccess on successful initialization
+ */
 fn_t drv_led_init(void) {
   rmt_tx_channel_config_t tx_chan_config = {
       .clk_src = RMT_CLK_SRC_DEFAULT,  // select source clock
@@ -112,6 +140,15 @@ fn_t drv_led_init(void) {
   return kSuccess;
 }
 
+/**
+ * @brief Sets the RGB LED color
+ *
+ * @param kNum LED index (0-based)
+ * @param kRed Red component (0-255)
+ * @param kGreen Green component (0-255)
+ * @param kBlue Blue component (0-255)
+ * @return kSuccess on successful operation, kFailure if LED index is invalid
+ */
 fn_t drv_led_set(const uint8_t kNum, const uint8_t kRed, const uint8_t kGreen,
                  const uint8_t kBlue) {
   if (kNum >= EXAMPLE_LED_NUMBERS) {
