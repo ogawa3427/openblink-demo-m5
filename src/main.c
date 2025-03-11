@@ -9,6 +9,7 @@
 
 #include "../.pio/libdeps/m5stack-stamps3/mrubyc/src/mrubyc.h"
 #include "api/blink.h"
+#include "api/gpio.h"
 #include "api/input.h"
 #include "api/led.h"
 #include "app/blink.h"
@@ -39,6 +40,7 @@ void app_main() {
     api_led_define();    // LED.*
     api_input_define();  // Input.*
     api_blink_define();  // Blink.*
+    api_gpio_define();   // GPIO.*
 
     ////////////////////
     // Clear reload request flag
