@@ -2,6 +2,13 @@
  * SPDX-License-Identifier: BSD-3-Clause
  * SPDX-FileCopyrightText: Copyright (c) 2025 ViXion Inc. All Rights Reserved.
  */
+/**
+ * @file main.c
+ * @brief Main application entry point for OpenBlink demo on M5Stack
+ *
+ * This file contains the main application logic for the OpenBlink demo,
+ * including mruby/c VM initialization and execution.
+ */
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -26,6 +33,12 @@ static bool request_mruby_reload = false;
 static uint8_t memory_pool[MRBC_HEAP_MEMORY_SIZE] = {0};
 static uint8_t bytecode_slot2[BLINK_MAX_BYTECODE_SIZE] = {0};
 
+/**
+ * @brief Main application entry point
+ *
+ * Initializes the application and runs the mruby/c VM in an infinite loop.
+ * Handles loading bytecode, setting up API classes, and managing VM tasks.
+ */
 void app_main() {
   app_init();
   while (1) {
@@ -70,13 +83,19 @@ void app_main() {
   }
 }
 
-// **************************************************************************
-// app_mrubyc_vm_set_reload
+/**
+ * @brief Sets the mruby/c VM reload request flag
+ *
+ * @return kSuccess always
+ */
 fn_t app_mrubyc_vm_set_reload(void) {
   request_mruby_reload = true;
   return kSuccess;
 }
 
-// **************************************************************************
-// app_mrubyc_vm_get_reload
+/**
+ * @brief Gets the current state of the mruby/c VM reload request flag
+ *
+ * @return true if reload is requested, false otherwise
+ */
 bool app_mrubyc_vm_get_reload(void) { return request_mruby_reload; }
