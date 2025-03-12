@@ -9,6 +9,8 @@
  * This file contains the main application logic for the OpenBlink demo,
  * including mruby/c VM initialization and execution.
  */
+#include "main.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
