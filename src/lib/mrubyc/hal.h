@@ -23,7 +23,6 @@
 
 /***** Local headers ********************************************************/
 #include "../../drv/ble_blink.h"
-#include "../../main.h"
 
 /***** Constant values ******************************************************/
 /***** Macros ***************************************************************/
@@ -96,9 +95,6 @@ inline static int hal_write(int fd, const void *buf, int nbytes) {
     buffer[i] = ((char *)buf)[i];
   }
   ble_print(buffer);
-  if (strncmp(buffer, "Exception", strlen("Exception")) == 0) {
-    app_mrubyc_vm_set_block_run();
-  }
   return write(1, buf, nbytes);
 }
 
