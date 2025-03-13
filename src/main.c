@@ -9,6 +9,8 @@
  * This file contains the main application logic for the OpenBlink demo,
  * including mruby/c VM initialization and execution.
  */
+#include "main.h"
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -29,6 +31,7 @@
 #define MRUBYC_VM_MAIN_STACK_SIZE (50 * 1024)
 
 static bool request_mruby_reload = false;
+static bool block_run = false;
 
 static uint8_t memory_pool[MRBC_HEAP_MEMORY_SIZE] = {0};
 static uint8_t bytecode_slot2[BLINK_MAX_BYTECODE_SIZE] = {0};
@@ -40,8 +43,19 @@ static uint8_t bytecode_slot2[BLINK_MAX_BYTECODE_SIZE] = {0};
  * Handles loading bytecode, setting up API classes, and managing VM tasks.
  */
 void app_main() {
+  bool block_run_msg_sent = false;
   app_init();
   while (1) {
+    if (true == block_run) {
+      if (false == block_run_msg_sent) {
+        ble_print(
+            "The execution of mruby/c has been blocked. Waiting for Blink.");
+        block_run_msg_sent = true;
+      }
+      vTaskDelay(100 / portTICK_PERIOD_MS);  // 100ms delay
+      continue;
+    }
+    block_run_msg_sent = false;
     mrbc_tcb *tcb[MAX_VM_COUNT] = {NULL};
 
     // mruby/c initialize
@@ -76,6 +90,11 @@ void app_main() {
     ////////////////////
     mrbc_run();
 
+    if (false == request_mruby_reload) {
+      ble_print("Abnormal termination");
+      app_mrubyc_vm_set_block_run();
+    }
+
     ble_print("mruby/c finished");
     ////////////////////
     // mruby/c cleanup
@@ -90,6 +109,7 @@ void app_main() {
  */
 fn_t app_mrubyc_vm_set_reload(void) {
   request_mruby_reload = true;
+  block_run = false;
   return kSuccess;
 }
 
@@ -99,3 +119,13 @@ fn_t app_mrubyc_vm_set_reload(void) {
  * @return true if reload is requested, false otherwise
  */
 bool app_mrubyc_vm_get_reload(void) { return request_mruby_reload; }
+
+/**
+ * @brief Sets the mruby/c VM block run flag
+ *
+ * @return kSuccess always
+ */
+fn_t app_mrubyc_vm_set_block_run(void) {
+  block_run = true;
+  return kSuccess;
+}
