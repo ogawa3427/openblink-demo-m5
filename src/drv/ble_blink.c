@@ -64,7 +64,7 @@ static int blink_read_mtu(uint16_t conn_handle, uint16_t attr_handle,
  * @param len Total length of the command data
  * @return 0 on success, non-zero on failure
  */
-static int blink_program_command_D(BLINK_CHUNK_HEADER *header, uint16_t len);
+static int blink_program_command_D(BLINK_CHUNK_HEADER *header, struct ble_gatt_access_ctxt *ctxt);
 
 /**
  * @brief Processes a Program command
@@ -206,11 +206,17 @@ static int blink_write_program(uint16_t conn_handle, uint16_t attr_handle,
   switch (header->command) {
     case BLINK_CMD_DATA:
       printf("blink_program_command [D]ata\n");
-      blink_program_command_D(header, ctxt->om->om_len);
+      if (blink_program_command_D(header, ctxt) != 0) {
+        printf("blink_program_command [D]ata failed\n");
+        return -1;
+      }
       break;
     case BLINK_CMD_PROG:
       printf("blink_program_command [P]rogram\n");
-      blink_program_command_P(header);
+      if (blink_program_command_P(header) != 0) {
+        printf("blink_program_command [P]rogram failed\n");
+        return -1;
+      }
       break;
     case BLINK_CMD_RESET:
       printf("blink_program_command [Reset]\n");
@@ -236,20 +242,37 @@ static int blink_write_program(uint16_t conn_handle, uint16_t attr_handle,
  * @param len Total length of the command data
  * @return 0 on success, non-zero on failure
  */
-static int blink_program_command_D(BLINK_CHUNK_HEADER *header, uint16_t len) {
-  BLINK_CHUNK_DATA *data_chunk = (BLINK_CHUNK_DATA *)header;
-  const int size = data_chunk->size;
-  const int offset = data_chunk->offset;
-
-  if (sizeof(BLINK_CHUNK_DATA) + size != len) {
+static int blink_program_command_D(BLINK_CHUNK_HEADER *header, struct ble_gatt_access_ctxt *ctxt) {
+  if(ctxt->om->om_len < sizeof(BLINK_CHUNK_DATA)){
     return -1;
   }
+  BLINK_CHUNK_DATA *data_chunk = (BLINK_CHUNK_DATA *)header;
+  const uint16_t size = data_chunk->size;
+  const uint16_t offset = data_chunk->offset;
   if (offset + size > BLINK_MAX_BYTECODE_SIZE) {
     return -1;
   }
 
-  uint8_t *buffer = (uint8_t *)(data_chunk + 1);
-  memcpy(&blink_bytecode[offset], buffer, size);
+  int ofs = 0;
+  struct os_mbuf* om = ctxt->om;
+  while(1){
+    uint8_t* buf = (uint8_t*)om->om_data;
+    uint16_t len = om->om_len;
+    if(om == ctxt->om){
+      buf += sizeof(BLINK_CHUNK_DATA);
+      len -= sizeof(BLINK_CHUNK_DATA);
+    }
+    if(ofs + len > size){
+      return -1;
+    }
+    memcpy(&blink_bytecode[offset+ofs], buf, len);
+    ofs += len;
+    if(om->om_next.sle_next == NULL) break;
+    om = om->om_next.sle_next;
+  }
+  if (ofs != size) {
+    return -1;
+  }
   return 0;
 }
 
