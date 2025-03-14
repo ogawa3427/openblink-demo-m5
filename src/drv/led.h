@@ -11,15 +11,17 @@
 #include <stdint.h>
 
 #include "../lib/fn.h"
-
+#include "driver/gpio.h"
 /**
  * @brief Initializes the LED driver
  *
  * Sets up the RMT peripheral for controlling WS2812 RGB LEDs.
  *
+ * @param pin_num GPIO number
+ * @param size Number of LEDs
  * @return kSuccess on successful initialization
  */
-fn_t drv_led_init(void);
+fn_t drv_led_init(gpio_num_t pin_num, uint8_t size);
 
 /**
  * @brief Sets the RGB LED color

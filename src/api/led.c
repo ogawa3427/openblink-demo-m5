@@ -54,6 +54,7 @@ fn_t api_led_define(void) {
  */
 static void c_set_led(mrb_vm *vm, mrb_value *v, int argc) {
   uint8_t rgb[3] = {0};
+  uint8_t num = 0;
   SET_FALSE_RETURN();
 
   do {
@@ -67,7 +68,11 @@ static void c_set_led(mrb_vm *vm, mrb_value *v, int argc) {
     }
   } while (0);
 
-  if (kSuccess == drv_led_set(0, rgb[0], rgb[1], rgb[2])) {
+  if (2 <= argc && MRBC_TT_INTEGER == v[2].tt) {
+    num = (uint8_t)v[2].i;
+  }
+
+  if (kSuccess == drv_led_set(num, rgb[0], rgb[1], rgb[2])) {
     SET_TRUE_RETURN();
   }
 }
