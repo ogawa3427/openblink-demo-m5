@@ -27,6 +27,8 @@
 #include "rb/slot1.h"
 #include "rb/slot2.h"
 
+extern void init_c_m5u();  // for features in m5u directory
+
 #define MRBC_HEAP_MEMORY_SIZE (15 * 1024)
 #define MRUBYC_VM_MAIN_STACK_SIZE (50 * 1024)
 
@@ -66,6 +68,8 @@ void app_main() {
     api_led_define();    // LED.*
     api_input_define();  // Input.*
     api_blink_define();  // Blink.*
+
+    init_c_m5u();  // for features in m5u directory
 
     ////////////////////
     // Clear reload request flag
