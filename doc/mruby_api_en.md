@@ -87,13 +87,14 @@ end
 
 ### factory_reset! Method
 
+- Upon successful processing, a restart (soft reset) will be executed.
+
 #### Arguments
 
 None
 
 #### Return Value (bool)
 
-- true: Success
 - false: Fail
 
 #### Code Example
