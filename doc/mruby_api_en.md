@@ -63,6 +63,66 @@ LED.set([0, 0, 255]) # Blue
 
 ---
 
+## PWM Class
+
+### setup Method
+
+#### Arguments
+
+- `PWM.setup(pin_num, initial_duty)` - Sets up a GPIO pin as PWM output.
+  - pin_num: GPIO pin number
+  - initial_duty: Initial duty cycle (0-100%)
+
+#### Return Value (int)
+
+- 0-7: Channel number on success
+- -1: Failure
+
+#### Code Example
+
+```ruby
+channel = PWM.setup(15, 50) # Set GPIO 15 with initial duty cycle 50%
+```
+
+### set_duty Method
+
+#### Arguments
+
+- `PWM.set_duty(channel, duty)` - Sets the duty cycle of the PWM output.
+  - channel: Channel number from setup
+  - duty: Duty cycle (0-100%)
+
+#### Return Value (bool)
+
+- true: Success
+- false: Failure
+
+#### Code Example
+
+```ruby
+PWM.set_duty(channel, 75) # Set duty cycle to 75%
+```
+
+### disable Method
+
+#### Arguments
+
+- `PWM.disable(channel)` - Disables the PWM output.
+  - channel: Channel number from setup
+
+#### Return Value (bool)
+
+- true: Success
+- false: Failure
+
+#### Code Example
+
+```ruby
+PWM.disable(channel) # Disable PWM output
+```
+
+---
+
 ## Blink Class
 
 ### req_reload? Method

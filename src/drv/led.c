@@ -1,13 +1,15 @@
 /**
  * @file led.c
- * @brief LED driver implementation
+ * @brief LED driver implementation with PWM support
  *
  * Implements functions for controlling WS2812 RGB LEDs using the ESP32 RMT
- * peripheral. Based on Espressif's LED strip example.
+ * peripheral and simple LEDs using PWM via the LEDC peripheral.
+ * WS2812 implementation based on Espressif's LED strip example.
  */
 #include "led.h"
 
 #include "../lib/fn.h"
+#include "pwm.h"
 
 /*
  * SPDX-FileCopyrightText: 2021-2024 Espressif Systems (Shanghai) CO LTD
@@ -18,11 +20,11 @@
 #include <string.h>
 
 #include "../lib/fn.h"
+#include "driver/gpio.h"
 #include "driver/rmt_tx.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
 
 #define RMT_LED_STRIP_RESOLUTION_HZ 40000000
 
@@ -167,7 +169,7 @@ fn_t drv_led_set(const uint8_t kNum, const uint8_t kRed, const uint8_t kGreen,
 
   // Flush RGB values to LEDs
   ESP_ERROR_CHECK(rmt_transmit(led_chan, simple_encoder, led_strip_pixels,
-                               led_strip_pixels_size*3, &tx_config));
+                               led_strip_pixels_size * 3, &tx_config));
   ESP_ERROR_CHECK(rmt_tx_wait_all_done(led_chan, portMAX_DELAY));
 
   return kSuccess;

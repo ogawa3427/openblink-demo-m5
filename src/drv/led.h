@@ -5,13 +5,14 @@
  * Provides functions for initializing and controlling RGB LEDs
  * on the M5Stack hardware.
  */
-#ifndef DRV_LED_H
-#define DRV_LED_H
+#ifndef LED_H
+#define LED_H
 
 #include <stdint.h>
 
 #include "../lib/fn.h"
 #include "driver/gpio.h"
+
 /**
  * @brief Initializes the LED driver
  *
@@ -34,5 +35,11 @@ fn_t drv_led_init(gpio_num_t pin_num, uint8_t size);
  */
 fn_t drv_led_set(const uint8_t kNum, const uint8_t kRed, const uint8_t kGreen,
                  const uint8_t kBlue);
+
+// PWM制御関数
+fn_t drv_pwm_init(void);
+int drv_pwm_setup_pin(gpio_num_t gpio_pin, uint8_t initial_duty);
+fn_t drv_pwm_set_duty(int channel, uint8_t duty);
+fn_t drv_pwm_disable(int channel);
 
 #endif
