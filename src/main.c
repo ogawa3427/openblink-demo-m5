@@ -20,6 +20,7 @@
 #include "api/input.h"
 #include "api/led.h"
 #include "api/pwm.h"
+#include "api/uart.h"
 #include "app/blink.h"
 #include "app/init.h"
 #include "drv/ble_blink.h"
@@ -64,6 +65,7 @@ void app_main() {
     api_input_define();  // Input.*
     api_blink_define();  // Blink.*
     api_pwm_define();    // PWM.*
+    api_uart_define();   // UART.*
 
     init_c_m5u();  // for features in m5u directory
 
