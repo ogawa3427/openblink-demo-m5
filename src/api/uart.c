@@ -92,7 +92,7 @@ static void c_uart_init(mrb_vm *vm, mrb_value *v, int argc) {
   int tx_pin = v[2].i;
   int rx_pin = v[3].i;
   int baud_rate = 115200;     // Default baud
-  int rx_buffer_size = 1024;  // Default RX buffer
+  int rx_buffer_size = 256;   // Default RX buffer
   int tx_buffer_size = 1024;  // Default TX buffer
 
   // Process optional arguments
@@ -106,6 +106,26 @@ static void c_uart_init(mrb_vm *vm, mrb_value *v, int argc) {
     return;
   }
   uart_port_t port_num = (uart_port_t)port_num_int;
+
+  // (ESP32 specific check) Validate buffer sizes against hardware FIFO length
+  // (128) RX buffer size must be > 128 TX buffer size must be 0 or > 128
+  const int SOC_UART_FIFO_LEN_ESP32 = 128;  // Use known value for ESP32
+  if (rx_buffer_size <= SOC_UART_FIFO_LEN_ESP32) {
+    ESP_LOGE(TAG,
+             "init: rx_buffer_size (%d) must be greater than hardware FIFO "
+             "length (%d)",
+             rx_buffer_size, SOC_UART_FIFO_LEN_ESP32);
+    // SET_FALSE_RETURN is already set at the beginning
+    return;
+  }
+  if (tx_buffer_size != 0 && tx_buffer_size <= SOC_UART_FIFO_LEN_ESP32) {
+    ESP_LOGE(TAG,
+             "init: tx_buffer_size (%d) must be 0 or greater than hardware "
+             "FIFO length (%d)",
+             tx_buffer_size, SOC_UART_FIFO_LEN_ESP32);
+    // SET_FALSE_RETURN is already set at the beginning
+    return;
+  }
 
   // Call driver init function
   fn_t result = drv_uart_init(port_num, tx_pin, rx_pin, baud_rate,
