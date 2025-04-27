@@ -23,7 +23,11 @@
  * Implements BLE functionality using the NimBLE stack, including
  * initialization, advertising, and connection management.
  */
-// #include "esp_log.h"
+#include <inttypes.h>
+#include <string.h>
+
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "freertos/FreeRTOSConfig.h"
 #include "nvs_flash.h"
 /* BLE */
@@ -127,6 +131,13 @@ static int blehr_gap_event(struct ble_gap_event *event, void *arg) {
         blehr_advertise();
       }
       conn_handle = event->link_estab.conn_handle;
+
+      // Add memory logging here
+      ESP_LOGI("BLE_CONNECT", "BLE connection established.");
+      ESP_LOGI("BLE_CONNECT", "Free heap: %" PRIu32 " bytes",
+               esp_get_free_heap_size());
+      ESP_LOGI("BLE_CONNECT", "Min free heap: %" PRIu32 " bytes",
+               esp_get_minimum_free_heap_size());
 
       /* Initiate MTU exchange after connection established */
       ble_gattc_exchange_mtu(conn_handle, NULL, NULL);

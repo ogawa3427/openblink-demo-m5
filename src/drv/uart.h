@@ -4,83 +4,75 @@
  */
 /**
  * @file uart.h
- * @brief UART driver interface
- *
- * Defines functions for controlling UART communication on ESP32.
+ * @brief Header for UART driver
  */
-#ifndef DRV_UART_H
-#define DRV_UART_H
+#ifndef DRV_UART_H_
+#define DRV_UART_H_
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include "../lib/fn.h"
+#include "driver/uart.h"  // For uart_port_t
 
-// UART設定のデフォルト値
-#define UART_DEFAULT_BAUD_RATE 115200
-#define UART_DEFAULT_DATA_BITS UART_DATA_8_BITS
-#define UART_DEFAULT_PARITY UART_PARITY_DISABLE
-#define UART_DEFAULT_STOP_BITS UART_STOP_BITS_1
+// Define uart_port_num_t based on ESP-IDF's uart_port_t for clarity
+typedef uart_port_t uart_port_num_t;
 
-/**
- * @brief 使用可能なUARTポート番号
- *
- * UART0はコンソール用に使用されているため、UART1とUART2を使用します
- */
-typedef enum {
-  UART_PORT_1 = 1,  // UART1
-  UART_PORT_2 = 2,  // UART2
-} uart_port_num_t;
+// Remove definition of uart_port_num_t if it conflicts or is redundant
+// typedef enum { UART_NUM_0 = 0, UART_NUM_1, UART_NUM_2 } uart_port_num_t;
 
 /**
- * @brief UART初期化
+ * @brief Initialize UART port
  *
- * 指定されたUARTポートを初期化します
- *
- * @param uart_num UARTポート番号 (1または2)
- * @param tx_pin 送信ピン番号
- * @param rx_pin 受信ピン番号
- * @param baud_rate ボーレート
- * @return kSuccess 成功時、kFailure 失敗時
+ * @param uart_num UART port number (UART_NUM_0, UART_NUM_1, or UART_NUM_2)
+ * @param tx_pin TX pin number (use GPIO_NUM_NC if not used)
+ * @param rx_pin RX pin number (use GPIO_NUM_NC if not used)
+ * @param baud_rate Baud rate
+ * @param rx_buffer_size RX ring buffer size
+ * @param tx_buffer_size TX ring buffer size (0 for no buffer)
+ * @return kSuccess on success, kFailure on failure
  */
 fn_t drv_uart_init(uart_port_num_t uart_num, int tx_pin, int rx_pin,
-                   int baud_rate);
+                   int baud_rate, int rx_buffer_size, int tx_buffer_size);
 
 /**
- * @brief UARTデータ送信
+ * @brief Write data to UART port
  *
- * 指定されたUARTポートからデータを送信します
- *
- * @param uart_num UARTポート番号
- * @param data 送信するデータ
- * @param len データの長さ
- * @return 送信されたバイト数、エラー時は負の値
+ * @param uart_num UART port number
+ * @param data Pointer to data buffer
+ * @param len Length of data to write
+ * @return Number of bytes written, or -1 on error
  */
-int drv_uart_write(uart_port_num_t uart_num, const uint8_t* data, size_t len);
+int drv_uart_write(uart_port_num_t uart_num, const void* data, size_t len);
 
 /**
- * @brief UARTデータ受信
+ * @brief Read data from UART port
  *
- * 指定されたUARTポートからデータを受信します
- *
- * @param uart_num UARTポート番号
- * @param data 受信データを格納するバッファ
- * @param len 受信するバイト数の最大値
- * @param timeout_ms タイムアウト（ミリ秒）
- * @return 受信したバイト数、エラー時は負の値
+ * @param uart_num UART port number
+ * @param buf Pointer to buffer to store read data
+ * @param len Maximum number of bytes to read
+ * @param timeout_ms Timeout in milliseconds
+ * @return Number of bytes read (can be 0 if timeout), or -1 on error
  */
-int drv_uart_read(uart_port_num_t uart_num, uint8_t* data, size_t len,
+int drv_uart_read(uart_port_num_t uart_num, void* buf, size_t len,
                   uint32_t timeout_ms);
 
 /**
- * @brief UART終了処理
+ * @brief Get the number of bytes available in the UART RX buffer
  *
- * 指定されたUARTポートを終了します
+ * @param uart_num UART port number
+ * @param available_bytes Pointer to store the result
+ * @return kSuccess on success, kFailure if port not initialized or error
+ */
+fn_t drv_uart_get_available(uart_port_num_t uart_num, size_t* available_bytes);
+
+/**
+ * @brief Deinitialize UART port
  *
- * @param uart_num UARTポート番号
- * @return kSuccess 成功時、kFailure 失敗時
+ * @param uart_num UART port number
+ * @return kSuccess on success, kFailure on failure
  */
 fn_t drv_uart_deinit(uart_port_num_t uart_num);
 
-#endif  // DRV_UART_H
+#endif /* DRV_UART_H_ */

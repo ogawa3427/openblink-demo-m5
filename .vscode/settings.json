@@ -2,4 +2,7 @@
   "C_Cpp.clang_format_style": "Google",
   "editor.formatOnSave": true,
   "editor.formatOnType": true,
+  "files.associations": {
+    "ble_hs.h": "c"
+  },
 }

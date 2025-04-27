@@ -11,17 +11,22 @@
  */
 #include "ble_blink.h"
 
+#include <inttypes.h>
 #include <string.h>
 
 #include "../app/blink.h"
 #include "../lib/crc/crc.h"
 #include "../main.h"
 #include "ble.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "esp_system.h"
 #include "host/ble_hs.h"
 #include "host/ble_uuid.h"
 #include "services/gap/ble_svc_gap.h"
 #include "services/gatt/ble_svc_gatt.h"
+
+static const char *TAG = "BLE_BLINK";
 
 static uint8_t blink_bytecode[BLINK_MAX_BYTECODE_SIZE] = {0};
 
@@ -64,7 +69,8 @@ static int blink_read_mtu(uint16_t conn_handle, uint16_t attr_handle,
  * @param len Total length of the command data
  * @return 0 on success, non-zero on failure
  */
-static int blink_program_command_D(BLINK_CHUNK_HEADER *header, struct ble_gatt_access_ctxt *ctxt);
+static int blink_program_command_D(BLINK_CHUNK_HEADER *header,
+                                   struct ble_gatt_access_ctxt *ctxt);
 
 /**
  * @brief Processes a Program command
@@ -127,6 +133,11 @@ static const struct ble_gatt_svc_def gatt_svcs[] = {
  * @return 0 on success, non-zero on failure
  */
 int ble_blink_init(void) {
+  ESP_LOGI(TAG, "Initializing BLE Blink service...");
+  ESP_LOGI(TAG, "Free heap: %" PRIu32 " bytes", esp_get_free_heap_size());
+  ESP_LOGI(TAG, "Min free heap: %" PRIu32 " bytes",
+           esp_get_minimum_free_heap_size());
+
   int rc;
 
   ble_svc_gap_init();
@@ -134,14 +145,21 @@ int ble_blink_init(void) {
 
   rc = ble_gatts_count_cfg(gatt_svcs);
   if (rc != 0) {
+    ESP_LOGE(TAG, "ble_gatts_count_cfg failed: %d", rc);
     return rc;
   }
 
   rc = ble_gatts_add_svcs(gatt_svcs);
   if (rc != 0) {
+    ESP_LOGE(TAG, "ble_gatts_add_svcs failed: %d", rc);
     return rc;
   }
 
+  ESP_LOGI(TAG, "BLE Blink service initialized successfully.");
+  ESP_LOGI(TAG, "Free heap after init: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
+  ESP_LOGI(TAG, "Min free heap after init: %" PRIu32 " bytes",
+           esp_get_minimum_free_heap_size());
   return 0;
 }
 
@@ -198,38 +216,51 @@ int ble_print(const char *data) {
  */
 static int blink_write_program(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg) {
+  ESP_LOGD(TAG, "blink_write_program called.");
+  ESP_LOGI(TAG, "Free heap before write: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
+  ESP_LOGD(TAG, "Min free heap: %" PRIu32 " bytes",
+           esp_get_minimum_free_heap_size());
+
   BLINK_CHUNK_HEADER *header = (BLINK_CHUNK_HEADER *)ctxt->om->om_data;
   if (header->version != BLINK_VERSION) {
-    return -1;
+    ESP_LOGE(TAG, "Invalid BLINK version: %d", header->version);
+    return BLE_ATT_ERR_INVALID_PDU;
   }
 
   switch (header->command) {
     case BLINK_CMD_DATA:
-      printf("blink_program_command [D]ata\n");
+      ESP_LOGD(TAG, "Processing BLINK_CMD_DATA");
       if (blink_program_command_D(header, ctxt) != 0) {
-        printf("blink_program_command [D]ata failed\n");
-        return -1;
+        ESP_LOGE(TAG, "blink_program_command_D failed");
+        return BLE_ATT_ERR_INVALID_PDU;
       }
       break;
     case BLINK_CMD_PROG:
-      printf("blink_program_command [P]rogram\n");
+      ESP_LOGD(TAG, "Processing BLINK_CMD_PROG");
       if (blink_program_command_P(header) != 0) {
-        printf("blink_program_command [P]rogram failed\n");
-        return -1;
+        ESP_LOGE(TAG, "blink_program_command_P failed");
+        return BLE_ATT_ERR_INVALID_PDU;
       }
       break;
     case BLINK_CMD_RESET:
-      printf("blink_program_command [Reset]\n");
+      ESP_LOGI(TAG, "Processing BLINK_CMD_RESET");
       esp_restart();
       break;
     case BLINK_CMD_RELOAD:
-      printf("blink_program_command re[L]oad\n");
+      ESP_LOGI(TAG, "Processing BLINK_CMD_RELOAD");
       app_mrubyc_vm_set_reload();
       break;
     default:
-      return -1;
+      ESP_LOGW(TAG, "Unknown BLINK command: %c", header->command);
+      return BLE_ATT_ERR_INVALID_PDU;
   }
 
+  ESP_LOGD(TAG, "blink_write_program finished successfully.");
+  ESP_LOGI(TAG, "Free heap after write: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
+  ESP_LOGD(TAG, "Min free heap after write: %" PRIu32 " bytes",
+           esp_get_minimum_free_heap_size());
   return 0;
 }
 
@@ -242,37 +273,50 @@ static int blink_write_program(uint16_t conn_handle, uint16_t attr_handle,
  * @param len Total length of the command data
  * @return 0 on success, non-zero on failure
  */
-static int blink_program_command_D(BLINK_CHUNK_HEADER *header, struct ble_gatt_access_ctxt *ctxt) {
-  if(ctxt->om->om_len < sizeof(BLINK_CHUNK_DATA)){
+static int blink_program_command_D(BLINK_CHUNK_HEADER *header,
+                                   struct ble_gatt_access_ctxt *ctxt) {
+  ESP_LOGI(TAG, "Free heap before D command: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
+  if (ctxt->om->om_len < sizeof(BLINK_CHUNK_DATA)) {
+    ESP_LOGE(TAG, "Data chunk too small: %d", ctxt->om->om_len);
     return -1;
   }
   BLINK_CHUNK_DATA *data_chunk = (BLINK_CHUNK_DATA *)header;
   const uint16_t size = data_chunk->size;
   const uint16_t offset = data_chunk->offset;
+  ESP_LOGD(TAG, "Receiving data chunk: offset=%d, size=%d", offset, size);
   if (offset + size > BLINK_MAX_BYTECODE_SIZE) {
+    ESP_LOGE(TAG, "Data chunk exceeds max size: offset=%d, size=%d", offset,
+             size);
     return -1;
   }
 
   int ofs = 0;
-  struct os_mbuf* om = ctxt->om;
-  while(1){
-    uint8_t* buf = (uint8_t*)om->om_data;
+  struct os_mbuf *om = ctxt->om;
+  while (1) {
+    uint8_t *buf = (uint8_t *)om->om_data;
     uint16_t len = om->om_len;
-    if(om == ctxt->om){
+    if (om == ctxt->om) {
       buf += sizeof(BLINK_CHUNK_DATA);
       len -= sizeof(BLINK_CHUNK_DATA);
     }
-    if(ofs + len > size){
+    if (ofs + len > size) {
       return -1;
     }
-    memcpy(&blink_bytecode[offset+ofs], buf, len);
+    memcpy(&blink_bytecode[offset + ofs], buf, len);
     ofs += len;
-    if(om->om_next.sle_next == NULL) break;
+    if (om->om_next.sle_next == NULL) break;
     om = om->om_next.sle_next;
   }
   if (ofs != size) {
+    ESP_LOGE(TAG,
+             "Incomplete data transfer: expected %d bytes, received %d bytes",
+             size, ofs);
     return -1;
   }
+  ESP_LOGD(TAG, "Data chunk received successfully.");
+  ESP_LOGI(TAG, "Free heap after D command: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
   return 0;
 }
 
@@ -287,18 +331,32 @@ static int blink_program_command_D(BLINK_CHUNK_HEADER *header, struct ble_gatt_a
  */
 static int blink_program_command_P(BLINK_CHUNK_HEADER *header) {
   BLINK_CHUNK_PROGRAM *p = (BLINK_CHUNK_PROGRAM *)header;
-  uint16_t crc16 = crc16_reflect(0xd175U, 0xFFFFU, blink_bytecode, p->length);
+  ESP_LOGD(TAG, "Processing Program command: length=%d, crc=0x%04X", p->length,
+           p->crc);
+  ESP_LOGI(TAG, "Free heap before P command: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
 
   if (p->length > BLINK_MAX_BYTECODE_SIZE) {
+    ESP_LOGE(TAG, "Program length exceeds max size: %d", p->length);
     return -1;
   }
 
+  uint16_t crc16 = crc16_reflect(0xd175U, 0xFFFFU, blink_bytecode, p->length);
+  ESP_LOGD(TAG, "Calculated CRC: 0x%04X", crc16);
+
   if (crc16 == p->crc) {
+    ESP_LOGI(TAG, "CRC check passed. Storing bytecode (length: %d)", p->length);
     blink_store(blink_bytecode, p->length);
   } else {
+    ESP_LOGE(TAG, "CRC check failed. Expected 0x%04X, got 0x%04X", p->crc,
+             crc16);
+    memset(blink_bytecode, 0, sizeof(blink_bytecode));
     return -1;
   }
 
   memset(blink_bytecode, 0, sizeof(blink_bytecode));
+  ESP_LOGD(TAG, "Program command processed successfully.");
+  ESP_LOGI(TAG, "Free heap after P command: %" PRIu32 " bytes",
+           esp_get_free_heap_size());
   return 0;
 }

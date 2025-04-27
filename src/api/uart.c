@@ -16,25 +16,19 @@
 #include <stdint.h>
 #include <string.h>
 
-// #include "../drv/uart.h" // drvレイヤーは使用しない
+// Include the driver layer header
+#include "../drv/uart.h"  // Use the driver layer
 #include "../lib/fn.h"
-#include "driver/gpio.h"        // GPIO設定用
-#include "driver/uart.h"        // ESP-IDFのUARTドライバヘッダ
-#include "esp_log.h"            // ログ出力用 (エラー表示などに便利)
-#include "freertos/FreeRTOS.h"  // pdMS_TO_TICKS用
-#include "freertos/task.h"      // pdMS_TO_TICKS用
+// #include "driver/gpio.h"        // GPIO included via drv/uart.h or not needed
+// #include "driver/uart.h"        // UART driver included via drv/uart.h
+#include "esp_log.h"            // For logging
+#include "freertos/FreeRTOS.h"  // For pdMS_TO_TICKS indirectly if needed for timeouts
+#include "freertos/task.h"  // For pdMS_TO_TICKS indirectly if needed for timeouts
 #include "mrubyc.h"
 
-// ESP-IDF UARTドライバ関数のプロトタイプ宣言 // 不要になったため削除
-
-// ESP-IDF のエラーコード定義（存在しない場合のみ） //
-// 通常はヘッダに含まれるため削除検討
-
-// 初期化状態フラグ
-// (UART_NUM_MAXを使用するのが望ましいが、ここでは3のままにしておく)
-static bool uart_initialized[UART_NUM_MAX] = {
-    false};                            // サイズをUART_NUM_MAXに変更し、初期化
-static const char *TAG = "mrbc_uart";  // ログ用タグ
+// Initialization status is now managed by the driver layer
+// static bool uart_initialized[UART_NUM_MAX] = {false};
+static const char *TAG = "mrbc_uart";
 
 /**
  * @brief mruby/c用のメソッド実装の前方宣言
@@ -56,7 +50,6 @@ fn_t api_uart_define(void) {
   mrb_class *class_uart;
   class_uart = mrbc_define_class(0, "UART", mrbc_class_object);
 
-  // クラスメソッドを定義
   mrbc_define_method(0, class_uart, "init", c_uart_init);
   mrbc_define_method(0, class_uart, "write", c_uart_write);
   mrbc_define_method(0, class_uart, "read", c_uart_read);
@@ -67,7 +60,7 @@ fn_t api_uart_define(void) {
 }
 
 /**
- * @brief UARTクラスのinitメソッドの実装
+ * @brief UARTクラスのinitメソッドの実装 (ドライバ層呼び出し)
  *
  * UARTポートを初期化します。
  * 引数: port_num - ポート番号(1または2), tx_pin - 送信ピン, rx_pin - 受信ピン,
@@ -78,281 +71,229 @@ fn_t api_uart_define(void) {
  * @param argc 引数の数
  */
 static void c_uart_init(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_FALSE_RETURN();  // デフォルトは失敗
+  SET_FALSE_RETURN();  // Default to failure
 
-  // 最低3個の引数が必要（ポート番号、TX、RX）
-  // オプション引数：ボーレート、RXバッファサイズ、TXバッファサイズ
+  // Args: port_num, tx_pin, rx_pin, [baud_rate], [rx_buffer_size],
+  // [tx_buffer_size]
   if (argc < 3) {
-    mrbc_raisef(vm, MRBC_CLASS(ArgumentError),
-                "wrong number of arguments (given %d, expected 3..6)", argc);
+    ESP_LOGE(TAG, "init: wrong number of arguments (given %d, expected 3..6)",
+             argc);
     return;
   }
 
-  // 引数の取得と型チェック
+  // Argument type check
   if (v[1].tt != MRBC_TT_INTEGER || v[2].tt != MRBC_TT_INTEGER ||
       v[3].tt != MRBC_TT_INTEGER) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "invalid argument type");
+    ESP_LOGE(TAG, "init: invalid argument type for port/tx/rx");
     return;
   }
 
   int port_num_int = v[1].i;
   int tx_pin = v[2].i;
   int rx_pin = v[3].i;
-  int baud_rate = 115200;     // デフォルトボーレート
-  int rx_buffer_size = 1024;  // デフォルトRXバッファ
-  int tx_buffer_size = 0;     // デフォルトTXバッファ (0はバッファなし)
+  int baud_rate = 115200;     // Default baud
+  int rx_buffer_size = 1024;  // Default RX buffer
+  int tx_buffer_size = 1024;  // Default TX buffer
 
-  // オプションの引数を処理
+  // Process optional arguments
   if (argc >= 4 && v[4].tt == MRBC_TT_INTEGER) baud_rate = v[4].i;
   if (argc >= 5 && v[5].tt == MRBC_TT_INTEGER) rx_buffer_size = v[5].i;
   if (argc >= 6 && v[6].tt == MRBC_TT_INTEGER) tx_buffer_size = v[6].i;
 
-  // ポート番号チェック (0, 1, 2)
+  // Port number check (use UART_NUM_MAX from ESP-IDF via drv layer)
   if (port_num_int < 0 || port_num_int >= UART_NUM_MAX) {
-    mrbc_raise(vm, MRBC_CLASS(RangeError), "invalid UART port number");
+    ESP_LOGE(TAG, "init: invalid UART port number %d", port_num_int);
     return;
   }
   uart_port_t port_num = (uart_port_t)port_num_int;
 
-  // すでに初期化済みの場合、一度削除する
-  if (uart_initialized[port_num]) {
-    ESP_LOGW(TAG, "UART%d already initialized. Deinitializing first.",
-             port_num);
-    uart_driver_delete(port_num);
-    uart_initialized[port_num] = false;
-  }
+  // Call driver init function
+  fn_t result = drv_uart_init(port_num, tx_pin, rx_pin, baud_rate,
+                              rx_buffer_size, tx_buffer_size);
 
-  // UARTドライバのインストール
-  esp_err_t err =
-      uart_driver_install(port_num, rx_buffer_size, tx_buffer_size, 0, NULL, 0);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to install UART%d driver: %s", port_num,
-             esp_err_to_name(err));
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "uart_driver_install failed");
-    return;
+  if (result == kSuccess) {
+    ESP_LOGI(TAG, "drv_uart_init for UART%d succeeded.", port_num);
+    SET_TRUE_RETURN();
+  } else {
+    ESP_LOGE(TAG, "drv_uart_init for UART%d failed.", port_num);
+    SET_FALSE_RETURN();
   }
-
-  // UARTパラメータの設定
-  uart_config_t uart_config = {
-      .baud_rate = baud_rate,
-      .data_bits = UART_DATA_8_BITS,
-      .parity = UART_PARITY_DISABLE,
-      .stop_bits = UART_STOP_BITS_1,
-      .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
-      .source_clk = UART_SCLK_DEFAULT,  // または UART_SCLK_APB
-  };
-  err = uart_param_config(port_num, &uart_config);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to configure UART%d parameters: %s", port_num,
-             esp_err_to_name(err));
-    uart_driver_delete(port_num);  // インストールしたドライバを削除
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "uart_param_config failed");
-    return;
-  }
-
-  // ピンの割り当て
-  // GPIO_NUM_NC を指定するとピンを割り当てない
-  err = uart_set_pin(port_num, tx_pin, rx_pin, UART_PIN_NO_CHANGE,
-                     UART_PIN_NO_CHANGE);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to set UART%d pins (TX:%d, RX:%d): %s", port_num,
-             tx_pin, rx_pin, esp_err_to_name(err));
-    uart_driver_delete(port_num);  // インストールしたドライバを削除
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "uart_set_pin failed");
-    return;
-  }
-
-  uart_initialized[port_num] = true;
-  ESP_LOGI(TAG, "UART%d initialized (TX:%d, RX:%d, Baud:%d)", port_num, tx_pin,
-           rx_pin, baud_rate);
-  SET_TRUE_RETURN();
 }
 
 /**
- * @brief UARTクラスのwriteメソッドの実装
+ * @brief UARTクラスのwriteメソッドの実装 (ドライバ層呼び出し)
  *
  * UARTポートからデータを送信します。
- * 引数: port_num - ポート番号(1または2), data - 送信データ（文字列）
- * 戻り値: 送信したバイト数、エラー時は-1
+ * 引数: port_num - ポート番号(1または2), data -
+ * 送信データ（文字列またはバイト配列） 戻り値: 送信したバイト数、エラー時は-1
  *
  * @param vm mruby/c VMへのポインタ
  * @param v メソッド引数へのポインタ
  * @param argc 引数の数
  */
 static void c_uart_write(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_INT_RETURN(-1);  // デフォルトはエラー
+  SET_INT_RETURN(-1);  // Default to error (-1 bytes written)
 
-  // 引数チェック
+  // Args: port_num, data (String or Array)
   if (argc < 2 || v[1].tt != MRBC_TT_INTEGER) {
+    ESP_LOGE(TAG, "write: invalid argument count or type for port");
     return;
   }
 
   int port_num_int = v[1].i;
 
-  // ポート番号チェック (0, 1, 2) と初期化チェック
-  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX ||
-      !uart_initialized[port_num_int]) {
-    mrbc_raise(vm, MRBC_CLASS(StandardError),
-               "UART port not initialized or invalid");
+  // Port number check
+  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX) {
+    ESP_LOGE(TAG, "write: invalid UART port number %d", port_num_int);
     return;
   }
   uart_port_t port_num = (uart_port_t)port_num_int;
 
-  // 送信データの型チェック
+  // Initialization check is handled by the driver layer
+
+  const void *data_ptr = NULL;
+  size_t data_len = 0;
+  uint8_t *temp_buf = NULL;  // For array conversion
   if (v[2].tt == MRBC_TT_STRING) {
-    // 文字列データ
-    const char *data = (const char *)v[2].string->data;
-    size_t len = v[2].string->size;
-
-    // データ送信
-    int written = uart_write_bytes(port_num, data, len);
-    if (written < 0) {
-      ESP_LOGE(TAG, "UART%d write failed", port_num);
-      // エラー発生時は-1を返す仕様のままにする
-    }
-    SET_INT_RETURN(written);
-
+    // String data
+    data_ptr =
+        (const void *)mrbc_string_cstr(&v[2]);  // Use safe C string getter
+    data_len = mrbc_string_size(&v[2]);
   } else if (v[2].tt == MRBC_TT_ARRAY) {
-    // 配列データ（バイト配列）
-    int len = v[2].array->n_stored;
-    if (len <= 0) {
-      SET_INT_RETURN(0);  // 空の配列なら0バイト書き込み
+    // Array data (byte array)
+    data_len = mrbc_array_size(&v[2]);
+    if (data_len == 0) {
+      SET_INT_RETURN(0);  // Wrote 0 bytes
       return;
     }
 
-    // 動的にバッファ確保
-    uint8_t *buf = (uint8_t *)mrbc_alloc(vm, len);
-    if (!buf) {
-      mrbc_raise(vm, MRBC_CLASS(NoMemoryError),
-                 "failed to allocate buffer for write");
-      return;  // エラー時は-1が返る
+    // Allocate temporary buffer
+    temp_buf = (uint8_t *)mrbc_alloc(vm, data_len);
+    if (!temp_buf) {
+      ESP_LOGE(TAG, "write: failed to allocate buffer for array write");
+      return;  // Returns -1
     }
 
-    // 配列からバイトデータを抽出
+    // Extract bytes from array
     bool type_error = false;
-    for (int i = 0; i < len; i++) {
-      mrb_value *item = &v[2].array->data[i];
-      if (item->tt == MRBC_TT_INTEGER) {
-        // 0-255の範囲にクリップする (mruby/cの整数は範囲が広い)
-        int val = item->i;
+    for (int i = 0; i < data_len; i++) {
+      mrb_value item = mrbc_array_get(&v[2], i);
+      if (item.tt == MRBC_TT_INTEGER) {
+        int val = item.i;
+        // Clip to 0-255
         if (val < 0) val = 0;
         if (val > 255) val = 255;
-        buf[i] = (uint8_t)val;
+        temp_buf[i] = (uint8_t)val;
       } else {
-        // 整数でない要素があればエラー
         type_error = true;
         break;
       }
     }
 
-    int written = -1;
     if (type_error) {
-      mrbc_raise(vm, MRBC_CLASS(TypeError),
-                 "array contains non-integer elements");
-    } else {
-      // データ送信
-      written = uart_write_bytes(port_num, (const char *)buf, len);
-      if (written < 0) {
-        ESP_LOGE(TAG, "UART%d write array failed", port_num);
-      }
+      ESP_LOGE(TAG, "write: array contains non-integer elements");
+      mrbc_free(vm, temp_buf);
+      return;  // Returns -1
     }
-
-    // バッファ解放
-    mrbc_free(vm, buf);
-    SET_INT_RETURN(written);
-
+    data_ptr = (const void *)temp_buf;
   } else {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "data must be String or Array");
-    return;  // エラー時は-1が返る
+    ESP_LOGE(TAG, "write: data must be String or Array");
+    return;  // Returns -1
   }
+
+  // Call driver write function
+  int written = drv_uart_write(port_num, data_ptr, data_len);
+
+  // Free temporary buffer if allocated
+  if (temp_buf) {
+    mrbc_free(vm, temp_buf);
+  }
+
+  // Set mrbc return value
+  SET_INT_RETURN(written);
 }
 
 /**
- * @brief UARTクラスのreadメソッドの実装
+ * @brief UARTクラスのreadメソッドの実装 (ドライバ層呼び出し)
  *
  * UARTポートからデータを受信します。
  * 引数: port_num - ポート番号(1または2), length - 読み込むバイト数,
  * [timeout_ms] - タイムアウト（ミリ秒、デフォルト100ms） 戻り値:
- * 受信したデータ（文字列）、エラー時はnil
+ * 受信したデータ（文字列）、データなしの場合は空文字列、エラー時はnil
  *
  * @param vm mruby/c VMへのポインタ
  * @param v メソッド引数へのポインタ
  * @param argc 引数の数
  */
 static void c_uart_read(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_NIL_RETURN();  // デフォルトはnil
+  SET_NIL_RETURN();  // Default to nil on error or no data? Let's return empty
+                     // string for no data.
 
-  // 引数チェック（最低2つ必要：ポート番号、読み込むバイト数）
+  // Args: port_num, length, [timeout_ms]
   if (argc < 2 || v[1].tt != MRBC_TT_INTEGER || v[2].tt != MRBC_TT_INTEGER) {
+    ESP_LOGE(TAG, "read: invalid argument count or type");
+    SET_NIL_RETURN();  // Return nil for argument errors
     return;
   }
 
   int port_num_int = v[1].i;
   int length = v[2].i;
-  uint32_t timeout_ms = 100;  // デフォルトタイムアウト
+  uint32_t timeout_ms = 100;  // Default timeout
 
-  // ポート番号チェック (0, 1, 2) と初期化チェック
-  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX ||
-      !uart_initialized[port_num_int]) {
-    mrbc_raise(vm, MRBC_CLASS(StandardError),
-               "UART port not initialized or invalid");
-    return;  // エラー時はnilが返る
+  // Port number check
+  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX) {
+    ESP_LOGE(TAG, "read: invalid UART port number %d", port_num_int);
+    SET_NIL_RETURN();
+    return;
   }
   uart_port_t port_num = (uart_port_t)port_num_int;
 
-  // 読み込むバイト数のチェック
+  // Length check
   if (length <= 0) {
-    // 0バイト読み込み要求は空文字列を返す
-    mrb_value result = mrbc_string_new(vm, "", 0);
+    mrbc_value result =
+        mrbc_string_new_cstr(vm, "");  // Return empty string for 0 length
     SET_RETURN(result);
     return;
   }
-  // ESP-IDFのバッファサイズに合わせるか、より大きなサイズを許可するか検討
-  // ここでは上限を設けないが、メモリ使用量に注意
-  // if (length > 1024) length = 1024;
 
-  // タイムアウト指定がある場合
+  // Optional timeout argument
   if (argc >= 3 && v[3].tt == MRBC_TT_INTEGER) {
-    timeout_ms = (uint32_t)v[3].i;
-    if ((int32_t)timeout_ms < 0) timeout_ms = 0;  // 負の値は0として扱う
+    int timeout_arg = v[3].i;
+    timeout_ms = (timeout_arg < 0) ? 0 : (uint32_t)timeout_arg;
   }
-  // ESP-IDFのタイムアウトはTickType_tで指定
-  TickType_t timeout_ticks = (timeout_ms == 0) ? 0 : pdMS_TO_TICKS(timeout_ms);
-  // タイムアウト0msでも最低1Tick待つようにする (ESP-IDFの仕様に依存)
-  // if (timeout_ms > 0 && timeout_ticks == 0) timeout_ticks = 1;
 
-  // データ受信用バッファ
+  // Allocate buffer for reading
   uint8_t *buf = (uint8_t *)mrbc_alloc(vm, length);
   if (!buf) {
-    mrbc_raise(vm, MRBC_CLASS(NoMemoryError),
-               "failed to allocate buffer for read");
-    return;  // メモリ確保失敗時はnil
+    ESP_LOGE(TAG, "read: failed to allocate buffer (%d bytes)", length);
+    SET_NIL_RETURN();
+    return;
   }
 
-  // データ受信 (uart_read_bytes)
-  int read_bytes = uart_read_bytes(port_num, buf, length, timeout_ticks);
+  // Call driver read function
+  int read_bytes = drv_uart_read(port_num, buf, length, timeout_ms);
 
   if (read_bytes > 0) {
-    // 受信データを文字列として返す
-    mrb_value result = mrbc_string_new(vm, (const char *)buf, read_bytes);
+    // Success: return string with read data
+    mrbc_value result = mrbc_string_new(vm, (const char *)buf, read_bytes);
     SET_RETURN(result);
   } else if (read_bytes == 0) {
-    // タイムアウトまたはデータなし
-    mrb_value result = mrbc_string_new(vm, "", 0);  // 空文字列を返す
+    // Timeout or no data: return empty string
+    mrbc_value result = mrbc_string_new_cstr(vm, "");
     SET_RETURN(result);
   } else {
-    // エラー発生 (-1 が返る場合など)
-    ESP_LOGE(TAG, "UART%d read failed", port_num);
-    // エラー時はnilを返す仕様のまま
-    SET_NIL_RETURN();
+    // Error from driver layer
+    ESP_LOGE(TAG, "drv_uart_read for UART%d failed (returned %d)", port_num,
+             read_bytes);
+    SET_NIL_RETURN();  // Return nil on error
   }
 
-  // バッファ解放
-  mrbc_free(vm, buf);  // read_bytesの値に関わらず解放する
+  // Free buffer
+  mrbc_free(vm, buf);
 }
 
 /**
- * @brief UARTクラスのdeinitメソッドの実装
+ * @brief UARTクラスのdeinitメソッドの実装 (ドライバ層呼び出し)
  *
  * UARTポートを終了します。
  * 引数: port_num - ポート番号(1または2)
@@ -363,81 +304,74 @@ static void c_uart_read(mrb_vm *vm, mrb_value *v, int argc) {
  * @param argc 引数の数
  */
 static void c_uart_deinit(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_FALSE_RETURN();  // デフォルトは失敗
+  SET_FALSE_RETURN();  // Default to failure
 
-  // 引数チェック
+  // Args: port_num
   if (argc < 1 || v[1].tt != MRBC_TT_INTEGER) {
+    ESP_LOGE(TAG, "deinit: invalid argument count or type");
     return;
   }
 
   int port_num_int = v[1].i;
 
-  // ポート番号チェック (0, 1, 2)
+  // Port number check
   if (port_num_int < 0 || port_num_int >= UART_NUM_MAX) {
-    mrbc_raise(vm, MRBC_CLASS(RangeError), "invalid UART port number");
-    return;  // エラー時はfalseが返る
+    ESP_LOGE(TAG, "deinit: invalid UART port number %d", port_num_int);
+    return;
   }
   uart_port_t port_num = (uart_port_t)port_num_int;
 
-  // 初期化されていなければ何もしない（成功扱い）
-  if (!uart_initialized[port_num]) {
-    SET_TRUE_RETURN();
-    return;
-  }
+  // Call driver deinit function
+  fn_t result = drv_uart_deinit(port_num);
 
-  // UARTドライバの削除
-  esp_err_t err = uart_driver_delete(port_num);
-  if (err == ESP_OK) {
-    uart_initialized[port_num] = false;
-    ESP_LOGI(TAG, "UART%d deinitialized", port_num);
+  if (result == kSuccess) {
+    // ESP_LOGI(TAG, "drv_uart_deinit for UART%d succeeded.", port_num); //
+    // Logged in drv layer
     SET_TRUE_RETURN();
   } else {
-    ESP_LOGE(TAG, "Failed to deinitialize UART%d: %s", port_num,
-             esp_err_to_name(err));
-    // 失敗した場合もfalseを返す
+    ESP_LOGE(TAG, "drv_uart_deinit for UART%d failed.", port_num);
     SET_FALSE_RETURN();
   }
 }
 
 /**
- * @brief UARTクラスのavailableメソッドの実装
+ * @brief UARTクラスのavailableメソッドの実装 (ドライバ層呼び出し)
  *
- * UARTポートの受信バッファにデータがあるか確認します。
+ * UARTポートの受信バッファにある読み出し可能なバイト数を返します。
  * 引数: port_num - ポート番号(1または2)
- * 戻り値: 読み出し可能なバイト数、エラー時は-1
+ * 戻り値: 読み出し可能なバイト数、エラー時は0
  *
  * @param vm mruby/c VMへのポインタ
  * @param v メソッド引数へのポインタ
  * @param argc 引数の数
  */
 static void c_uart_available(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_INT_RETURN(-1);  // デフォルトはエラー
+  SET_INT_RETURN(0);  // Default to 0 (error or no bytes)
 
-  // 引数チェック
+  // Args: port_num
   if (argc < 1 || v[1].tt != MRBC_TT_INTEGER) {
+    ESP_LOGE(TAG, "available: invalid argument count or type");
     return;
   }
 
   int port_num_int = v[1].i;
 
-  // ポート番号チェック (0, 1, 2) と初期化チェック
-  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX ||
-      !uart_initialized[port_num_int]) {
-    mrbc_raise(vm, MRBC_CLASS(StandardError),
-               "UART port not initialized or invalid");
-    return;  // エラー時は-1が返る
+  // Port number check
+  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX) {
+    ESP_LOGE(TAG, "available: invalid UART port number %d", port_num_int);
+    return;
   }
   uart_port_t port_num = (uart_port_t)port_num_int;
 
   size_t available_bytes = 0;
-  // uart_get_buffered_data_len は成功すれば ESP_OK を返す
-  esp_err_t err = uart_get_buffered_data_len(port_num, &available_bytes);
+  // Call driver get_available function
+  fn_t result = drv_uart_get_available(port_num, &available_bytes);
 
-  if (err == ESP_OK) {
+  if (result == kSuccess) {
     SET_INT_RETURN((int)available_bytes);
   } else {
-    ESP_LOGE(TAG, "Failed to get available bytes for UART%d: %s", port_num,
-             esp_err_to_name(err));
-    SET_INT_RETURN(-1);  // エラー時は-1を返す
+    // Error logged in drv layer or port not initialized
+    // ESP_LOGE(TAG, "drv_uart_get_available for UART%d failed.", port_num);
+    SET_INT_RETURN(0);  // Return 0 on failure
   }
 }

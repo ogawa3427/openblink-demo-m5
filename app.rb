@@ -1,8 +1,24 @@
 # UART初期化（ピン設定を修正）
 uart_port = 2  # UART1を使用
-tx_pin = 5    # TX用ピン（ドキュメント推奨: ATOM Matrixの場合はTX=17）
-rx_pin = 6    # RX用ピン（ドキュメント推奨: ATOM Matrixの場合はRX=16）
+tx_pin = 6
+rx_pin = 5
 baud_rate = 115200
+
+# ディスプレイの初期化と設定
+if Display.available?
+    Display.clear()  # ディスプレイをクリア
+    Display.set_text_size(1)  # テキストサイズを設定
+    Display.set_text_color(Display.color565(255, 255, 255))  # 白色テキスト
+    Display.println("UART Monitor")
+    Display.println("Baud: 115200")
+    Display.println("TX: #{tx_pin}, RX: #{rx_pin}")
+    Display.set_text_size(1)  # 小さめのテキストサイズに変更
+    line_count = 3
+  else
+    line_count = 0
+    puts "ディスプレイは利用できません"
+end
+
 
 puts "UARTを初期化します: ポート=#{uart_port}, TX=#{tx_pin}, RX=#{rx_pin}, ボーレート=#{baud_rate}"
 
@@ -12,6 +28,7 @@ sleep(0.3)
 
 if UART.init(uart_port, tx_pin, rx_pin, baud_rate)
   LED.set([0x00, 0xFF, 0x00])  # 緑色でUART初期化成功を表示
+  Display.println("UART init success")
   puts "UART初期化成功"
 else
   LED.set([0xFF, 0x00, 0x00])  # 赤色でUART初期化失敗を表示
@@ -19,8 +36,8 @@ else
   sleep(1)
   # 失敗した場合は別のピン設定を試す
   puts "別のピン設定を試みます..."
-  tx_pin = 5  # 別のTXピン
-  rx_pin = 6  # 別のRXピン
+  tx_pin = 15  # 別のTXピン
+  rx_pin = 16  # 別のRXピン
   if UART.init(uart_port, tx_pin, rx_pin, baud_rate)
     LED.set([0x00, 0xFF, 0x00])
     puts "UART初期化成功 (TX=#{tx_pin}, RX=#{rx_pin})"
@@ -30,22 +47,9 @@ else
     # エラーを表示して一時停止
     sleep(2)
   end
+  Display.println("UART init failed")
 end
 
-# ディスプレイの初期化と設定
-if Display.available?
-  Display.clear()  # ディスプレイをクリア
-  Display.set_text_size(2)  # テキストサイズを設定
-  Display.set_text_color(Display.color565(255, 255, 255))  # 白色テキスト
-  Display.println("UART Monitor")
-  Display.println("Baud: 115200")
-  Display.println("TX: #{tx_pin}, RX: #{rx_pin}")
-  Display.set_text_size(1)  # 小さめのテキストサイズに変更
-  line_count = 3
-else
-  line_count = 0
-  puts "ディスプレイは利用できません"
-end
 
 max_lines = 15  # 画面に表示する最大行数
 

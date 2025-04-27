@@ -1,2 +1,6 @@
 .pio
 .vscode
+docs/UART.md
+docs/UART_inside.md
+output.mrb
+output.mrb
