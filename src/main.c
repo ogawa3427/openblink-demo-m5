@@ -33,7 +33,7 @@
 
 extern void init_c_m5u();  // for features in m5u directory
 
-#define MRBC_HEAP_MEMORY_SIZE (15 * 1024)
+#define MRBC_HEAP_MEMORY_SIZE (32 * 1024)
 #define BUTTON_GPIO GPIO_NUM_38
 
 static bool request_mruby_reload = false;

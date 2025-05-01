@@ -59,6 +59,21 @@ int drv_uart_read(uart_port_num_t uart_num, void* buf, size_t len,
                   uint32_t timeout_ms);
 
 /**
+ * @brief Read data from UART until delimiter character is found or buffer is
+ * full
+ *
+ * @param uart_num UART port number
+ * @param buf Pointer to buffer to store read data (including delimiter if
+ * found)
+ * @param len Maximum number of bytes to read (including delimiter)
+ * @param delimiter Character to stop reading at
+ * @param timeout_ms Timeout in milliseconds for the entire operation
+ * @return Number of bytes read (including delimiter if found), or -1 on error
+ */
+int drv_uart_read_until(uart_port_num_t uart_num, void* buf, size_t len,
+                        char delimiter, uint32_t timeout_ms);
+
+/**
  * @brief Get the number of bytes available in the UART RX buffer
  *
  * @param uart_num UART port number

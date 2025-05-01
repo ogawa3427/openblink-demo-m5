@@ -36,6 +36,7 @@ static const char *TAG = "mrbc_uart";
 static void c_uart_init(mrb_vm *vm, mrb_value *v, int argc);
 static void c_uart_write(mrb_vm *vm, mrb_value *v, int argc);
 static void c_uart_read(mrb_vm *vm, mrb_value *v, int argc);
+static void c_uart_read_until(mrb_vm *vm, mrb_value *v, int argc);
 static void c_uart_deinit(mrb_vm *vm, mrb_value *v, int argc);
 static void c_uart_available(mrb_vm *vm, mrb_value *v, int argc);
 
@@ -53,6 +54,7 @@ fn_t api_uart_define(void) {
   mrbc_define_method(0, class_uart, "init", c_uart_init);
   mrbc_define_method(0, class_uart, "write", c_uart_write);
   mrbc_define_method(0, class_uart, "read", c_uart_read);
+  mrbc_define_method(0, class_uart, "read_until", c_uart_read_until);
   mrbc_define_method(0, class_uart, "deinit", c_uart_deinit);
   mrbc_define_method(0, class_uart, "available", c_uart_available);
 
@@ -306,6 +308,116 @@ static void c_uart_read(mrb_vm *vm, mrb_value *v, int argc) {
     ESP_LOGE(TAG, "drv_uart_read for UART%d failed (returned %d)", port_num,
              read_bytes);
     SET_NIL_RETURN();  // Return nil on error
+  }
+
+  // Free buffer
+  mrbc_free(vm, buf);
+}
+
+/**
+ * @brief UARTクラスのread_untilメソッドの実装 (ドライバ層呼び出し)
+ *
+ * 指定されたデリミタまでUARTポートからデータを受信します。
+ * 引数: port_num - ポート番号(1または2), length - 最大読み込みバイト数,
+ * delimiter - デリミタ文字（文字列の場合は最初の1文字を使用）,
+ * [timeout_ms] - タイムアウト（ミリ秒、デフォルト1000ms）
+ * 戻り値: 受信したデータ（文字列）、データなしの場合は空文字列、エラー時はnil
+ *
+ * @param vm mruby/c VMへのポインタ
+ * @param v メソッド引数へのポインタ
+ * @param argc 引数の数
+ */
+static void c_uart_read_until(mrb_vm *vm, mrb_value *v, int argc) {
+  SET_NIL_RETURN();  // Default to nil on error
+
+  // Args: port_num, length, delimiter, [timeout_ms]
+  if (argc < 3) {
+    ESP_LOGE(TAG,
+             "read_until: wrong number of arguments (given %d, expected 3..4)",
+             argc);
+    return;
+  }
+
+  // Check argument types
+  if (v[1].tt != MRBC_TT_INTEGER || v[2].tt != MRBC_TT_INTEGER) {
+    ESP_LOGE(TAG, "read_until: invalid port_num or length type");
+    return;
+  }
+
+  // The delimiter must be a String or an Integer
+  if (v[3].tt != MRBC_TT_STRING && v[3].tt != MRBC_TT_INTEGER) {
+    ESP_LOGE(TAG, "read_until: delimiter must be a String or Integer");
+    return;
+  }
+
+  int port_num_int = v[1].i;
+  int length = v[2].i;
+  char delimiter;
+  uint32_t timeout_ms = 1000;  // Default timeout: 1 second
+
+  // Port number check
+  if (port_num_int < 0 || port_num_int >= UART_NUM_MAX) {
+    ESP_LOGE(TAG, "read_until: invalid UART port number %d", port_num_int);
+    return;
+  }
+  uart_port_t port_num = (uart_port_t)port_num_int;
+
+  // Length check
+  if (length <= 0) {
+    ESP_LOGE(TAG, "read_until: invalid length %d", length);
+    return;
+  }
+
+  // Process delimiter argument
+  if (v[3].tt == MRBC_TT_STRING) {
+    // Get first character of string as delimiter
+    const char *delim_str = mrbc_string_cstr(&v[3]);
+    if (mrbc_string_size(&v[3]) == 0) {
+      ESP_LOGE(TAG, "read_until: empty delimiter string");
+      return;
+    }
+    delimiter = delim_str[0];
+  } else {
+    // Integer delimiter (ASCII code)
+    int delim_int = v[3].i;
+    if (delim_int < 0 || delim_int > 255) {
+      ESP_LOGE(TAG, "read_until: delimiter value out of range (0-255): %d",
+               delim_int);
+      return;
+    }
+    delimiter = (char)delim_int;
+  }
+
+  // Optional timeout argument
+  if (argc >= 4 && v[4].tt == MRBC_TT_INTEGER) {
+    int timeout_arg = v[4].i;
+    timeout_ms = (timeout_arg < 0) ? 0 : (uint32_t)timeout_arg;
+  }
+
+  // Allocate buffer for reading
+  uint8_t *buf = (uint8_t *)mrbc_alloc(vm, length);
+  if (!buf) {
+    ESP_LOGE(TAG, "read_until: failed to allocate buffer (%d bytes)", length);
+    return;
+  }
+
+  // Call driver read_until function
+  int read_bytes =
+      drv_uart_read_until(port_num, buf, length, delimiter, timeout_ms);
+
+  if (read_bytes > 0) {
+    // Success: return string with read data
+    mrbc_value result = mrbc_string_new(vm, (const char *)buf, read_bytes);
+    SET_RETURN(result);
+  } else if (read_bytes == 0) {
+    // Timeout or no data: return empty string
+    mrbc_value result = mrbc_string_new_cstr(vm, "");
+    SET_RETURN(result);
+  } else {
+    // Error from driver layer
+    ESP_LOGE(TAG, "drv_uart_read_until for UART%d failed (returned %d)",
+             port_num, read_bytes);
+    // SET_NIL_RETURN is already set at the beginning
   }
 
   // Free buffer

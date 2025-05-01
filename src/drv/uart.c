@@ -168,6 +168,87 @@ int drv_uart_read(uart_port_num_t uart_num, void* buf, size_t len,
 }
 
 /**
+ * @brief Read data from UART until delimiter character is found or buffer is
+ * full
+ */
+int drv_uart_read_until(uart_port_num_t uart_num, void* buf, size_t len,
+                        char delimiter, uint32_t timeout_ms) {
+  // パラメータチェック
+  if (uart_num < 0 || uart_num >= UART_NUM_MAX || !buf || len == 0) {
+    ESP_LOGE(TAG, "Invalid UART read_until parameters");
+    return -1;
+  }
+
+  // 初期化チェック
+  if (!uart_status[uart_num].initialized) {
+    ESP_LOGE(TAG, "UART%d not initialized for read_until", uart_num);
+    return -1;
+  }
+
+  uint8_t* buffer = (uint8_t*)buf;
+  size_t total_read = 0;
+  uint8_t current_byte;
+  TickType_t start_time = xTaskGetTickCount();
+  TickType_t end_time = (timeout_ms == portMAX_DELAY)
+                            ? portMAX_DELAY
+                            : start_time + pdMS_TO_TICKS(timeout_ms);
+
+  // Read until delimiter, buffer full, or timeout
+  while (total_read < len) {
+    // Calculate remaining timeout
+    TickType_t current_time = xTaskGetTickCount();
+    TickType_t ticks_to_wait;
+
+    if (timeout_ms == portMAX_DELAY) {
+      ticks_to_wait = portMAX_DELAY;
+    } else if (current_time >= end_time) {
+      // タイムアウト発生 - 収集したデータを返す（0バイトの可能性もある）
+      ESP_LOGD(TAG, "UART%d read_until timed out after %u bytes", uart_num,
+               total_read);
+      break;
+    } else {
+      ticks_to_wait = end_time - current_time;
+    }
+
+    // 1バイト読み込み
+    int read_bytes = uart_read_bytes(uart_num, &current_byte, 1, ticks_to_wait);
+
+    if (read_bytes < 0) {
+      ESP_LOGE(TAG, "UART%d read_until error in uart_read_bytes", uart_num);
+      return -1;
+    } else if (read_bytes == 0) {
+      // タイムアウト - これまでに収集したデータを返す
+      break;
+    }
+
+    // 読み込んだバイトをバッファに追加
+    buffer[total_read++] = current_byte;
+
+    // デリミタをチェック
+    if (current_byte == (uint8_t)delimiter) {
+      break;
+    }
+  }
+
+  if (total_read == 0) {
+    ESP_LOGD(TAG, "UART%d read_until: No data received before timeout",
+             uart_num);
+  } else if (total_read == len) {
+    ESP_LOGW(
+        TAG,
+        "UART%d read_until: Buffer full (%u bytes) without finding delimiter",
+        uart_num, len);
+  } else {
+    ESP_LOGD(TAG, "UART%d read_until: Read %u bytes%s", uart_num, total_read,
+             (buffer[total_read - 1] == (uint8_t)delimiter)
+                 ? " (with delimiter)"
+                 : " (without delimiter)");
+  }
+
+  return total_read;
+}
+
+/**
  * @brief Get the number of bytes available in the UART RX buffer
  */
 fn_t drv_uart_get_available(uart_port_num_t uart_num, size_t* available_bytes) {
