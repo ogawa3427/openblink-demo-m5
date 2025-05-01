@@ -23,7 +23,7 @@
 #include "api/uart.h"
 #include "app/blink.h"
 #include "app/init.h"
-#include "driver/gpio.h"
+// #include "driver/gpio.h"
 #include "drv/ble_blink.h"
 #include "lib/fn.h"
 #include "mrubyc.h"
@@ -33,8 +33,8 @@
 
 extern void init_c_m5u();  // for features in m5u directory
 
-#define MRBC_HEAP_MEMORY_SIZE (32 * 1024)
-#define BUTTON_GPIO GPIO_NUM_38
+#define MRBC_HEAP_MEMORY_SIZE (15 * 1024)
+// #define BUTTON_GPIO GPIO_NUM_0
 
 static bool request_mruby_reload = false;
 
@@ -50,14 +50,14 @@ static uint8_t bytecode_slot2[BLINK_MAX_BYTECODE_SIZE] = {0};
 void app_main() {
   app_init();
 
-  gpio_config_t io_conf = {
-      .pin_bit_mask = (1ULL << BUTTON_GPIO),
-      .mode = GPIO_MODE_INPUT,
-      .pull_up_en = GPIO_PULLUP_ENABLE,
-      .pull_down_en = GPIO_PULLDOWN_DISABLE,
-      .intr_type = GPIO_INTR_DISABLE,
-  };
-  gpio_config(&io_conf);
+  // gpio_config_t io_conf = {
+  //     .pin_bit_mask = (1ULL << BUTTON_GPIO),
+  //     .mode = GPIO_MODE_INPUT,
+  //     .pull_up_en = GPIO_PULLUP_ENABLE,
+  //     .pull_down_en = GPIO_PULLDOWN_DISABLE,
+  //     .intr_type = GPIO_INTR_DISABLE,
+  // };
+  // gpio_config(&io_conf);
 
   bool detect_abnormality = false;
   if (esp_reset_reason() == ESP_RST_PANIC) {
@@ -65,12 +65,12 @@ void app_main() {
   }
 
   while (1) {
-    if (gpio_get_level(BUTTON_GPIO) == 0) {
-      printf("Button pressed, clearing slot 2 and reloading VM...\n");
-      memset(bytecode_slot2, 0, sizeof(bytecode_slot2));
-      request_mruby_reload = true;
-      vTaskDelay(pdMS_TO_TICKS(200));
-    }
+    // if (gpio_get_level(BUTTON_GPIO) == 0) {
+    //   printf("Button pressed, clearing slot 2 and reloading VM...\n");
+    //   memset(bytecode_slot2, 0, sizeof(bytecode_slot2));
+    //   request_mruby_reload = true;
+    //   vTaskDelay(pdMS_TO_TICKS(200));
+    // }
 
     mrbc_tcb *tcb[MAX_VM_COUNT] = {NULL};
 
@@ -83,6 +83,8 @@ void app_main() {
     api_uart_define();   // UART.*
 
     init_c_m5u();  // for features in m5u directory
+
+    request_mruby_reload = false;
 
     if (detect_abnormality) {
       memcpy(bytecode_slot2, slot_err, sizeof(slot_err));
