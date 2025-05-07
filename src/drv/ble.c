@@ -40,7 +40,7 @@
 
 bool notify_state = false;
 uint16_t conn_handle;
-static char *device_name = "OpenBlink_ESP32";
+static char device_name[16] = "OpenBlink_ESP32";
 static int blehr_gap_event(struct ble_gap_event *event, void *arg);
 static uint8_t blehr_addr_type;
 struct ble_hs_cfg;
