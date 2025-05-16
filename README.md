@@ -19,14 +19,18 @@ To clone the repository and initialize the submodules, run the following command
 ```console
 $ git clone https://github.com/OpenBlink/openblink-demo-m5.git
 $ pio run
-$ pio run -t erase && pio run -t upload
+$ pio run -e m5stack-stamps3 -t erase -t upload
 ```
+
+> **Note:** Both `m5stack-stamps3` and `m5stack-atom` environments are configured in platformio.ini and can be used for device operations. The examples above use `m5stack-stamps3`, but you can use `m5stack-atom` by replacing `m5stack-stamps3` with `m5stack-atom` in the commands.
+
 
 ## Verified Hardware
 
 The following hardware platforms have been tested with OpenBlink:
 
 - M5 StampS3 (Espressif ESP32-S3FN8)
+- M5 ATOM (Espressif ESP32)
 
 ## Documentation
 
