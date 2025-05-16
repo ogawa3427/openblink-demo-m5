@@ -22,7 +22,7 @@ $ pio run
 $ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 ```
 
-> **Note:** Both m5stack-stamps3 and m5stack-atom environments are configured in platformio.ini and can be used for device operations. The examples above use m5stack-stamps3, but you can use m5stack-atom by replacing "m5stack-stamps3" with "m5stack-atom" in the commands.
+> **Note:** Both `m5stack-stamps3` and `m5stack-atom` environments are configured in platformio.ini and can be used for device operations. The examples above use `m5stack-stamps3`, but you can use `m5stack-atom` by replacing `m5stack-stamps3` with `m5stack-atom` in the commands.
 
 
 ## Verified Hardware
