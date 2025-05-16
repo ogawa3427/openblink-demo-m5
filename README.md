@@ -22,6 +22,9 @@ $ pio run
 $ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 ```
 
+> **Note:** While both m5stack-stamps3 and m5stack-atom environments are configured in platformio.ini, the m5stack-stamps3 environment is recommended for device operations as it is the primary verified hardware platform.
+
+
 ## Verified Hardware
 
 The following hardware platforms have been tested with OpenBlink:
