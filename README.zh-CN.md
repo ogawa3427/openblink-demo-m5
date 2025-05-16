@@ -19,7 +19,7 @@
 ```console
 $ git clone https://github.com/OpenBlink/openblink-demo-m5.git
 $ pio run
-$ pio run -t erase && pio run -t upload
+$ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 ```
 
 ## 已验证的硬件
