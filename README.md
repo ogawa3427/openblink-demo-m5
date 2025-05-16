@@ -31,6 +31,7 @@ The following hardware platforms have been tested with OpenBlink:
 ## Documentation
 
 For more detailed documentation, please check the [doc directory](./doc)
+You can also access the DeepWiki at [DeepWiki](https://deepwiki.com/OpenBlink/openblink-demo-m5)
 
 ## mruby/c LED Control API
 
