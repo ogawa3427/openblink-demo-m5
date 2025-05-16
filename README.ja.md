@@ -22,7 +22,7 @@ $ pio run
 $ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 ```
 
-> **注意:** platformio.iniにはm5stack-stamps3とm5stack-atomの両方の環境が設定されていますが、m5stack-stamps3環境が主要な検証済みハードウェアプラットフォームであるため、デバイス操作には推奨されています。
+> **注意:** platformio.iniにはm5stack-stamps3とm5stack-atomの両方の環境が設定されており、デバイス操作に使用できます。お使いのハードウェアプラットフォームに適した環境を使用してください。
 
 
 ## 検証済みハードウェア
@@ -30,6 +30,7 @@ $ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 以下のハードウェアプラットフォームは OpenBlink でテスト済みです：
 
 - M5 StampS3 (Espressif ESP32-S3FN8)
+- M5 ATOM (Espressif ESP32)
 
 ## ドキュメント
 

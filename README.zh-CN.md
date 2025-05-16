@@ -22,7 +22,7 @@ $ pio run
 $ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 ```
 
-> **注意:** 虽然platformio.ini中配置了m5stack-stamps3和m5stack-atom两种环境，但由于m5stack-stamps3是主要的已验证硬件平台，因此建议用于设备操作。
+> **注意:** platformio.ini中配置了m5stack-stamps3和m5stack-atom两种环境，可用于设备操作。请根据您的硬件平台选择适当的环境。
 
 
 ## 已验证的硬件
@@ -30,6 +30,7 @@ $ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
 以下硬件平台已经过 OpenBlink 测试：
 
 - M5 StampS3 (Espressif ESP32-S3FN8)
+- M5 ATOM (Espressif ESP32)
 
 ## 文档
 
