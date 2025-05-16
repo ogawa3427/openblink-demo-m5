@@ -117,7 +117,7 @@ The maximum bytecode size is defined by `BLINK_MAX_BYTECODE_SIZE` in the impleme
 
 CRC16 checksum is calculated using the `crc16_reflect` function with the following parameters:
 
-- Initial value: 0xd175
-- Polynomial: 0xFFFF
+- Initial value: 0xFFFF
+- Polynomial: 0xd175
 - Input: bytecode buffer
 - Length: bytecode length
