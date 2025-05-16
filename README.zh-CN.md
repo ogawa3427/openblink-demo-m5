@@ -31,6 +31,7 @@ $ pio run -t erase && pio run -t upload
 ## 文档
 
 有关更详细的文档，请查看[文档目录](./doc)
+您也可以访问[DeepWiki](https://deepwiki.com/OpenBlink/openblink-demo-m5)
 
 ## mruby/c LED 控制 API
 
