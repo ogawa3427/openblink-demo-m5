@@ -19,7 +19,7 @@
 ```console
 $ git clone https://github.com/OpenBlink/openblink-demo-m5.git
 $ pio run
-$ pio run -e m5stack-stamps3 -t erase && pio run -e m5stack-stamps3 -t upload
+$ pio run -e m5stack-stamps3 -t erase -t upload
 ```
 
 > **注意:** platformio.iniには`m5stack-stamps3`と`m5stack-atom`の両方の環境が設定されており、デバイス操作に使用できます。上記の例では`m5stack-stamps3`を使用していますが、コマンド内の「`m5stack-stamps3`」を「`m5stack-atom`」に置き換えることで`m5stack-atom`を使用できます。
