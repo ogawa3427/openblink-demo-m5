@@ -121,3 +121,5 @@ CRC16 checksum is calculated using the `crc16_reflect` function with the followi
 - Polynomial: 0xd175 (provides Hamming Distance 4 protection for data lengths up to 32751 bits)
 - Input: bytecode buffer
 - Length: bytecode length
+
+Reference: https://users.ece.cmu.edu/~koopman/crc/index.html
