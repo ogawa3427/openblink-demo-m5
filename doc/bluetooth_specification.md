@@ -111,7 +111,7 @@ Client                                      OpenBlink Device
 
 ### Maximum Bytecode Size
 
-The maximum bytecode size is defined by `BLINK_MAX_BYTECODE_SIZE` in the implementation.
+The maximum bytecode size is defined by `BLINK_MAX_BYTECODE_SIZE` in the implementation, which is set to 15KB (15 * 1024 bytes).
 
 ### CRC Calculation
 

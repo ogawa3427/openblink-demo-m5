@@ -111,7 +111,7 @@
 
 ### 最大字节码大小
 
-最大字节码大小在实现中由`BLINK_MAX_BYTECODE_SIZE`定义。
+最大字节码大小在实现中由`BLINK_MAX_BYTECODE_SIZE`定义，设置为15KB（15 * 1024字节）。
 
 ### CRC 计算
 
