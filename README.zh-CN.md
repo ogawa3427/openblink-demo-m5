@@ -36,7 +36,7 @@ $ pio run -e m5stack-stamps3 -t erase -t upload
 ## 文档
 
 有关更详细的文档，请查看[文档目录](./doc)
-您也可以访问[DeepWiki](https://deepwiki.com/OpenBlink/openblink-demo-m5)
+如需查阅AI驱动的全面文档以帮助您理解代码库，请访问[DeepWiki](https://deepwiki.com/OpenBlink/openblink-demo-m5)
 
 ## mruby/c LED 控制 API
 
