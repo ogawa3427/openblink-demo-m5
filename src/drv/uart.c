@@ -17,7 +17,16 @@
 #include "freertos/task.h"      // Required for pdMS_TO_TICKS
 
 #define TAG "UART_DRV"
-// #define UART_BUF_SIZE 1024 // Buffer sizes are now passed as arguments
+#define DEBUG_UART 1  // デバッグログの有効/無効を切り替える
+
+// デバッグログマクロ
+#if DEBUG_UART
+#define UART_DEBUG(fmt, ...) ESP_LOGD(TAG, fmt, ##__VA_ARGS__)
+#define UART_PERF(fmt, ...) ESP_LOGI(TAG, "[PERF] " fmt, ##__VA_ARGS__)
+#else
+#define UART_DEBUG(fmt, ...)
+#define UART_PERF(fmt, ...)
+#endif
 
 // UART設定と初期化状態を保存するための構造体
 // UART_NUM_MAX を使用して ESP32 の全ポートに対応
@@ -34,6 +43,10 @@ static struct {
  */
 fn_t drv_uart_init(uart_port_num_t uart_num, int tx_pin, int rx_pin,
                    int baud_rate, int rx_buffer_size, int tx_buffer_size) {
+  UART_DEBUG(
+      "UART init called: port=%d, tx=%d, rx=%d, baud=%d, rx_buf=%d, tx_buf=%d",
+      uart_num, tx_pin, rx_pin, baud_rate, rx_buffer_size, tx_buffer_size);
+
   // パラメータチェック (ポート番号、ピン、ボーレート)
   // Note: ESP-IDF allows GPIO_NUM_NC for pins
   if (uart_num < 0 || uart_num >= UART_NUM_MAX || baud_rate <= 0) {
@@ -66,6 +79,9 @@ fn_t drv_uart_init(uart_port_num_t uart_num, int tx_pin, int rx_pin,
       .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
       .source_clk = UART_SCLK_DEFAULT,  // Or UART_SCLK_APB
   };
+  UART_DEBUG("UART config: data_bits=%d, parity=%d, stop_bits=%d, flow_ctrl=%d",
+             config.data_bits, config.parity, config.stop_bits,
+             config.flow_ctrl);
 
   // UARTパラメータ設定
   ESP_ERROR_CHECK(uart_param_config(uart_num, &config));
@@ -96,6 +112,9 @@ fn_t drv_uart_init(uart_port_num_t uart_num, int tx_pin, int rx_pin,
  * @brief Write data to UART port
  */
 int drv_uart_write(uart_port_num_t uart_num, const void* data, size_t len) {
+  UART_DEBUG("UART write: port=%d, len=%zu", uart_num, len);
+  TickType_t start_time = xTaskGetTickCount();
+
   // パラメータチェック
   if (uart_num < 0 || uart_num >= UART_NUM_MAX || !data || len == 0) {
     ESP_LOGE(TAG, "Invalid UART write parameters");
@@ -110,6 +129,10 @@ int drv_uart_write(uart_port_num_t uart_num, const void* data, size_t len) {
 
   // データ送信 (uart_write_bytes expects const char*)
   int written = uart_write_bytes(uart_num, (const char*)data, len);
+  TickType_t end_time = xTaskGetTickCount();
+  UART_PERF("UART%d write took %lu ms for %d bytes", uart_num,
+            (end_time - start_time) * portTICK_PERIOD_MS, written);
+
   if (written < 0) {
     ESP_LOGE(TAG, "UART%d write failed", uart_num);
     // Return ESP-IDF error code? Or just -1?
@@ -128,6 +151,10 @@ int drv_uart_write(uart_port_num_t uart_num, const void* data, size_t len) {
  */
 int drv_uart_read(uart_port_num_t uart_num, void* buf, size_t len,
                   uint32_t timeout_ms) {
+  UART_DEBUG("UART read: port=%d, len=%zu, timeout=%lu ms", uart_num, len,
+             timeout_ms);
+  TickType_t start_time = xTaskGetTickCount();
+
   // パラメータチェック
   if (uart_num < 0 || uart_num >= UART_NUM_MAX || !buf || len == 0) {
     ESP_LOGE(TAG, "Invalid UART read parameters");
@@ -141,29 +168,23 @@ int drv_uart_read(uart_port_num_t uart_num, void* buf, size_t len,
   }
 
   // タイムアウト設定（ティック単位）
-  // Handle timeout_ms = 0 (non-blocking) and portMAX_DELAY (infinite)
-  TickType_t ticks_to_wait =
-      (timeout_ms == portMAX_DELAY) ? portMAX_DELAY : pdMS_TO_TICKS(timeout_ms);
-  // pdMS_TO_TICKS(0) is 0. If timeout_ms > 0 but results in 0 ticks, wait 1
-  // tick? ESP-IDF uart_read_bytes handles ticks_to_wait=0 correctly
-  // (non-blocking) if (timeout_ms > 0 && ticks_to_wait == 0) {
-  //   ticks_to_wait = 1; // Minimum wait if timeout > 0
-  // }
+  // 無限待機は許可しない
+  TickType_t ticks_to_wait = pdMS_TO_TICKS(timeout_ms);
+  if (ticks_to_wait == 0) {
+    ticks_to_wait = 1;  // 最小待機時間を1ティックに設定
+  }
 
   // データ受信 (uart_read_bytes expects uint8_t* for buffer)
   int read_bytes = uart_read_bytes(uart_num, (uint8_t*)buf, len, ticks_to_wait);
+  TickType_t end_time = xTaskGetTickCount();
+  UART_PERF("UART%d read took %lu ms, got %d bytes", uart_num,
+            (end_time - start_time) * portTICK_PERIOD_MS, read_bytes);
 
   if (read_bytes < 0) {
-    // ESP_ERR_TIMEOUT is not a fatal error, it returns 0 bytes read usually?
-    // Check ESP-IDF docs. uart_read_bytes returns -1 (UART_FAIL_ON_TIMEOUT) if
-    // configured, or 0 if not. Assume standard config returns 0 on timeout.
-    // Other errors might return < 0.
-    ESP_LOGE(TAG, "UART%d read failed (error code: %d)", uart_num,
-             read_bytes);  // Log the actual error if possible
-    return -1;             // Indicate error
+    ESP_LOGE(TAG, "UART%d read failed (error code: %d)", uart_num, read_bytes);
+    return -1;
   }
 
-  // Returns number of bytes read (can be 0 if timeout or no data)
   return read_bytes;
 }
 
@@ -173,6 +194,12 @@ int drv_uart_read(uart_port_num_t uart_num, void* buf, size_t len,
  */
 int drv_uart_read_until(uart_port_num_t uart_num, void* buf, size_t len,
                         char delimiter, uint32_t timeout_ms) {
+  UART_DEBUG(
+      "UART read_until: port=%d, len=%zu, delimiter='%c', timeout=%lu ms",
+      uart_num, len, delimiter, timeout_ms);
+  TickType_t start_time = xTaskGetTickCount();
+  TickType_t timeout_end = start_time + pdMS_TO_TICKS(timeout_ms);
+
   // パラメータチェック
   if (uart_num < 0 || uart_num >= UART_NUM_MAX || !buf || len == 0) {
     ESP_LOGE(TAG, "Invalid UART read_until parameters");
@@ -187,63 +214,47 @@ int drv_uart_read_until(uart_port_num_t uart_num, void* buf, size_t len,
 
   uint8_t* buffer = (uint8_t*)buf;
   size_t total_read = 0;
-  uint8_t current_byte;
-  TickType_t start_time = xTaskGetTickCount();
-  TickType_t end_time = (timeout_ms == portMAX_DELAY)
-                            ? portMAX_DELAY
-                            : start_time + pdMS_TO_TICKS(timeout_ms);
 
-  // Read until delimiter, buffer full, or timeout
+  // バッファサイズが1バイトの場合は通常のreadを使用
+  if (len == 1) {
+    return drv_uart_read(uart_num, buf, 1, timeout_ms);
+  }
+
+  // 一度に最大128バイト読み込む（ESP32のFIFOサイズに合わせる）
+  const size_t chunk_size = 128;
+  uint8_t temp_buf[chunk_size];
+
   while (total_read < len) {
-    // Calculate remaining timeout
+    // 残り時間を計算
     TickType_t current_time = xTaskGetTickCount();
-    TickType_t ticks_to_wait;
-
-    if (timeout_ms == portMAX_DELAY) {
-      ticks_to_wait = portMAX_DELAY;
-    } else if (current_time >= end_time) {
-      // タイムアウト発生 - 収集したデータを返す（0バイトの可能性もある）
-      ESP_LOGD(TAG, "UART%d read_until timed out after %u bytes", uart_num,
-               total_read);
-      break;
-    } else {
-      ticks_to_wait = end_time - current_time;
+    if (current_time >= timeout_end) {
+      break;  // タイムアウト
     }
 
-    // 1バイト読み込み
-    int read_bytes = uart_read_bytes(uart_num, &current_byte, 1, ticks_to_wait);
+    // 読み込むサイズを計算
+    size_t remaining = len - total_read;
+    size_t to_read = (remaining < chunk_size) ? remaining : chunk_size;
 
-    if (read_bytes < 0) {
-      ESP_LOGE(TAG, "UART%d read_until error in uart_read_bytes", uart_num);
-      return -1;
-    } else if (read_bytes == 0) {
-      // タイムアウト - これまでに収集したデータを返す
-      break;
+    // データ読み込み
+    int read_bytes = uart_read_bytes(uart_num, temp_buf, to_read, 1);
+    UART_DEBUG("UART read_until chunk: read=%d bytes", read_bytes);
+
+    if (read_bytes <= 0) {
+      break;  // エラーまたはタイムアウト
     }
 
-    // 読み込んだバイトをバッファに追加
-    buffer[total_read++] = current_byte;
-
-    // デリミタをチェック
-    if (current_byte == (uint8_t)delimiter) {
-      break;
+    // デリミタを探す
+    for (int i = 0; i < read_bytes; i++) {
+      buffer[total_read++] = temp_buf[i];
+      if (temp_buf[i] == (uint8_t)delimiter) {
+        return total_read;  // デリミタを見つけた
+      }
     }
   }
 
-  if (total_read == 0) {
-    ESP_LOGD(TAG, "UART%d read_until: No data received before timeout",
-             uart_num);
-  } else if (total_read == len) {
-    ESP_LOGW(
-        TAG,
-        "UART%d read_until: Buffer full (%u bytes) without finding delimiter",
-        uart_num, len);
-  } else {
-    ESP_LOGD(TAG, "UART%d read_until: Read %u bytes%s", uart_num, total_read,
-             (buffer[total_read - 1] == (uint8_t)delimiter)
-                 ? " (with delimiter)"
-                 : " (without delimiter)");
-  }
+  TickType_t actual_end_time = xTaskGetTickCount();
+  UART_PERF("UART%d read_until took %lu ms, total_read=%d", uart_num,
+            (actual_end_time - start_time) * portTICK_PERIOD_MS, total_read);
 
   return total_read;
 }
@@ -252,6 +263,8 @@ int drv_uart_read_until(uart_port_num_t uart_num, void* buf, size_t len,
  * @brief Get the number of bytes available in the UART RX buffer
  */
 fn_t drv_uart_get_available(uart_port_num_t uart_num, size_t* available_bytes) {
+  UART_DEBUG("UART get_available: port=%d", uart_num);
+
   if (uart_num < 0 || uart_num >= UART_NUM_MAX || !available_bytes) {
     ESP_LOGE(TAG, "Invalid parameters for drv_uart_get_available");
     return kFailure;
@@ -265,6 +278,7 @@ fn_t drv_uart_get_available(uart_port_num_t uart_num, size_t* available_bytes) {
   }
 
   ESP_ERROR_CHECK(uart_get_buffered_data_len(uart_num, available_bytes));
+  UART_DEBUG("UART get_available result: available=%d bytes", *available_bytes);
   return kSuccess;  // ESP_ERROR_CHECK ensures err == ESP_OK if we reach here
 }
 
@@ -272,6 +286,8 @@ fn_t drv_uart_get_available(uart_port_num_t uart_num, size_t* available_bytes) {
  * @brief Deinitialize UART port
  */
 fn_t drv_uart_deinit(uart_port_num_t uart_num) {
+  UART_DEBUG("UART deinit: port=%d", uart_num);
+
   // パラメータチェック
   if (uart_num < 0 || uart_num >= UART_NUM_MAX) {
     ESP_LOGE(TAG, "Invalid UART number %d for deinit", uart_num);

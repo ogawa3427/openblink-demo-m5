@@ -25,6 +25,7 @@
 #include "app/init.h"
 // #include "driver/gpio.h"
 #include "drv/ble_blink.h"
+#include "esp_task_wdt.h"
 #include "lib/fn.h"
 #include "mrubyc.h"
 #include "rb/slot1.h"
@@ -33,7 +34,7 @@
 
 extern void init_c_m5u();  // for features in m5u directory
 
-#define MRBC_HEAP_MEMORY_SIZE (15 * 1024)
+#define MRBC_HEAP_MEMORY_SIZE (32 * 1024)
 // #define BUTTON_GPIO GPIO_NUM_0
 
 static bool request_mruby_reload = false;
@@ -50,6 +51,13 @@ static uint8_t bytecode_slot2[BLINK_MAX_BYTECODE_SIZE] = {0};
 void app_main() {
   app_init();
 
+  // Initialize WDT
+  esp_task_wdt_config_t wdt_config = {.timeout_ms = 5000,
+                                      .idle_core_mask = (1 << 0) | (1 << 1),
+                                      .trigger_panic = false};
+  ESP_ERROR_CHECK(esp_task_wdt_init(&wdt_config));
+  ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
+
   // gpio_config_t io_conf = {
   //     .pin_bit_mask = (1ULL << BUTTON_GPIO),
   //     .mode = GPIO_MODE_INPUT,
@@ -65,6 +73,9 @@ void app_main() {
   }
 
   while (1) {
+    // Reset WDT at the start of each loop iteration
+    esp_task_wdt_reset();
+
     // if (gpio_get_level(BUTTON_GPIO) == 0) {
     //   printf("Button pressed, clearing slot 2 and reloading VM...\n");
     //   memset(bytecode_slot2, 0, sizeof(bytecode_slot2));
@@ -113,6 +124,9 @@ void app_main() {
     ble_print("mruby/c finished");
     mrbc_cleanup();
     request_mruby_reload = false;
+
+    // Reset WDT before the end of loop
+    esp_task_wdt_reset();
   }
 }
 
