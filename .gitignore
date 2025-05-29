@@ -1,6 +1,7 @@
 .pio
-.vscode
+.vscode/
 docs/UART.md
 docs/UART_inside.md
 output.mrb
-output.mrb
+.vscode/c_cpp_properties.json
+.vscode/launch.json
