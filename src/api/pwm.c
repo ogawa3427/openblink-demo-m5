@@ -56,7 +56,7 @@ fn_t api_pwm_define(void) {
  * @param argc 引数の数
  */
 static void c_pwm_setup(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_INT_RETURN(-1); // デフォルトは失敗
+  SET_INT_RETURN(-1);  // デフォルトは失敗
 
   // 引数チェック
   if (argc < 2 || v[1].tt != MRBC_TT_INTEGER || v[2].tt != MRBC_TT_INTEGER) {
@@ -93,7 +93,7 @@ static void c_pwm_setup(mrb_vm *vm, mrb_value *v, int argc) {
  * @param argc 引数の数
  */
 static void c_pwm_set_duty(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_FALSE_RETURN(); // デフォルトは失敗
+  SET_FALSE_RETURN();  // デフォルトは失敗
 
   // 引数チェック
   if (argc < 2 || v[1].tt != MRBC_TT_INTEGER || v[2].tt != MRBC_TT_INTEGER) {
@@ -105,7 +105,8 @@ static void c_pwm_set_duty(mrb_vm *vm, mrb_value *v, int argc) {
   int duty = v[2].i;
 
   // 値の範囲チェック
-  if (channel < 0 || channel >= 8 || duty < 0 || duty > 100 || pwm_channels[channel] == -1) {
+  if (channel < 0 || channel >= 8 || duty < 0 || duty > 100 ||
+      pwm_channels[channel] == -1) {
     return;
   }
 
@@ -127,7 +128,7 @@ static void c_pwm_set_duty(mrb_vm *vm, mrb_value *v, int argc) {
  * @param argc 引数の数
  */
 static void c_pwm_disable(mrb_vm *vm, mrb_value *v, int argc) {
-  SET_FALSE_RETURN(); // デフォルトは失敗
+  SET_FALSE_RETURN();  // デフォルトは失敗
 
   // 引数チェック
   if (argc < 1 || v[1].tt != MRBC_TT_INTEGER) {
@@ -147,4 +148,4 @@ static void c_pwm_disable(mrb_vm *vm, mrb_value *v, int argc) {
     pwm_channels[channel] = -1;
     SET_TRUE_RETURN();
   }
-} 
+}

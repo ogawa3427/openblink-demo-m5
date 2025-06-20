@@ -11,7 +11,7 @@
  */
 #include "main.h"
 
-// #include <malloc.h>
+#include <esp_heap_caps.h>  // ESP32のヒープ監視用
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -20,6 +20,7 @@
 #include "api/blink.h"
 #include "api/input.h"
 #include "api/led.h"
+#include "api/pwm.h"
 #include "api/uart.h"
 #include "app/blink.h"
 #include "app/init.h"
@@ -56,17 +57,25 @@ void app_main() {
   while (1) {
     mrbc_tcb *tcb[MAX_VM_COUNT] = {NULL};
 
+    // ESP32のヒープ状況をログ出力
+    printf("=== Memory Debug Info ===\n");
+    printf("ESP32 Free heap: %lu bytes\n", esp_get_free_heap_size());
+    printf("ESP32 Min free heap: %lu bytes\n",
+           esp_get_minimum_free_heap_size());
+    printf("mruby/c heap size: %d bytes\n", MRBC_HEAP_MEMORY_SIZE);
+
     // mruby/c initialize
     mrbc_init(memory_pool, MRBC_HEAP_MEMORY_SIZE);
+    printf("mruby/c initialized\n");
 
     ////////////////////
     // Class, Method
     api_led_define();    // LED.*
     api_input_define();  // Input.*
     api_blink_define();  // Blink.*
-    api_uart_define();   // UART.*
-
-    init_c_m5u();  // for features in m5u directory
+    api_uart_define();   // UART.*aj
+    api_pwm_define();    // PWM.*
+    init_c_m5u();        // for features in m5u directory
 
     ////////////////////
     // Clear reload request flag
@@ -99,6 +108,12 @@ void app_main() {
     printf("MRUBYC RUN RESULT:%d\n", ret);
     if (ret != 0) {
       detect_abnormality = true;
+      // エラー時のメモリ状況を詳細出力
+      printf("=== Error Memory Debug ===\n");
+      printf("ESP32 Free heap: %lu bytes\n", esp_get_free_heap_size());
+      printf("ESP32 Min free heap: %lu bytes\n",
+             esp_get_minimum_free_heap_size());
+      printf("Return code: %d (possible memory allocation failure)\n", ret);
     }
 
     ble_print("mruby/c finished");

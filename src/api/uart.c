@@ -192,7 +192,11 @@ static void c_uart_write(mrb_vm *vm, mrb_value *v, int argc) {
     // Allocate temporary buffer
     temp_buf = (uint8_t *)mrbc_alloc(vm, data_len);
     if (!temp_buf) {
-      ESP_LOGE(TAG, "write: failed to allocate buffer for array write");
+      ESP_LOGE(TAG,
+               "write: failed to allocate buffer for array write (%d bytes)",
+               data_len);
+      ESP_LOGE(TAG, "ESP32 free heap: %lu bytes, min free: %lu bytes",
+               esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
       return;  // Returns -1
     }
 
@@ -288,6 +292,8 @@ static void c_uart_read(mrb_vm *vm, mrb_value *v, int argc) {
   uint8_t *buf = (uint8_t *)mrbc_alloc(vm, length);
   if (!buf) {
     ESP_LOGE(TAG, "read: failed to allocate buffer (%d bytes)", length);
+    ESP_LOGE(TAG, "ESP32 free heap: %lu bytes, min free: %lu bytes",
+             esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
     SET_NIL_RETURN();
     return;
   }
@@ -398,6 +404,8 @@ static void c_uart_read_until(mrb_vm *vm, mrb_value *v, int argc) {
   uint8_t *buf = (uint8_t *)mrbc_alloc(vm, length);
   if (!buf) {
     ESP_LOGE(TAG, "read_until: failed to allocate buffer (%d bytes)", length);
+    ESP_LOGE(TAG, "ESP32 free heap: %lu bytes, min free: %lu bytes",
+             esp_get_free_heap_size(), esp_get_minimum_free_heap_size());
     return;
   }
 
