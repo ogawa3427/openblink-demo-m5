@@ -21,6 +21,7 @@
 #include "api/led.h"
 #include "api/pwm.h"
 #include "api/uart.h"
+#include "api/usb_serial.h"
 #include "app/blink.h"
 #include "app/init.h"
 // #include "driver/gpio.h"
@@ -51,11 +52,7 @@ static uint8_t bytecode_slot2[BLINK_MAX_BYTECODE_SIZE] = {0};
 void app_main() {
   app_init();
 
-  // Initialize WDT
-  esp_task_wdt_config_t wdt_config = {.timeout_ms = 5000,
-                                      .idle_core_mask = (1 << 0) | (1 << 1),
-                                      .trigger_panic = false};
-  ESP_ERROR_CHECK(esp_task_wdt_init(&wdt_config));
+  // Add current task to WDT (already initialized by ESP-IDF)
   ESP_ERROR_CHECK(esp_task_wdt_add(NULL));
 
   // gpio_config_t io_conf = {
@@ -72,6 +69,8 @@ void app_main() {
     detect_abnormality = true;
   }
 
+  printf("DEBUG: About to enter main loop\n");
+
   while (1) {
     // Reset WDT at the start of each loop iteration
     esp_task_wdt_reset();
@@ -87,11 +86,12 @@ void app_main() {
 
     mrbc_init(memory_pool, MRBC_HEAP_MEMORY_SIZE);
 
-    api_led_define();    // LED.*
-    api_input_define();  // Input.*
-    api_blink_define();  // Blink.*
-    api_pwm_define();    // PWM.*
-    api_uart_define();   // UART.*
+    api_led_define();         // LED.*
+    api_input_define();       // Input.*
+    api_blink_define();       // Blink.*
+    api_pwm_define();         // PWM.*
+    api_uart_define();        // UART.*
+    api_usb_serial_define();  // USBSerial.*
 
     init_c_m5u();  // for features in m5u directory
 
@@ -121,8 +121,13 @@ void app_main() {
       detect_abnormality = true;
     }
 
+    printf("DEBUG: About to call ble_print\n");
     ble_print("mruby/c finished");
+    printf("DEBUG: ble_print completed\n");
+
+    printf("DEBUG: About to call mrbc_cleanup\n");
     mrbc_cleanup();
+    printf("DEBUG: mrbc_cleanup completed\n");
     request_mruby_reload = false;
 
     // Reset WDT before the end of loop

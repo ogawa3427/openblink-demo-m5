@@ -5,4 +5,5 @@
   "files.associations": {
     "ble_hs.h": "c"
   },
+  "idf.pythonInstallPath": "/Users/ogawa/.pyenv/shims/python",
 }
