@@ -130,8 +130,8 @@ int drv_usb_serial_read(void* buf, size_t len, uint32_t timeout_ms) {
   int read_bytes =
       usb_serial_jtag_read_bytes((uint8_t*)buf, len, ticks_to_wait);
   TickType_t end_time = xTaskGetTickCount();
-  USB_SERIAL_PERF("USB Serial read took %lu ms, got %d bytes",
-                  (end_time - start_time) * portTICK_PERIOD_MS, read_bytes);
+  // USB_SERIAL_PERF("USB Serial read took %lu ms, got %d bytes",
+  //                 (end_time - start_time) * portTICK_PERIOD_MS, read_bytes);
 
   if (read_bytes < 0) {
     ESP_LOGE(TAG, "USB Serial read failed (error code: %d)", read_bytes);
